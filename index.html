@@ -50,7 +50,6 @@
             font-weight: 400;
         }
 
-        /* Styl pro vložené ikony v textu */
         .inline-icon {
             height: 40px; 
             vertical-align: middle;
@@ -77,13 +76,6 @@
         .simple-select:hover { border-bottom-color: #fff; }
         .simple-select option { background: #111; color: #fff; text-align: left; }
 
-        .maintenance-links { 
-            display: flex; flex-direction: column; gap: 8px; 
-            margin-top: 10px; 
-            align-items: flex-end; 
-        }
-
-        /* Tlačítko Start */
         #introStartBtn {
             position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); 
             padding: 10px 20px; 
@@ -118,7 +110,6 @@
         #settingsIcon { font-size: 24px; color: rgba(255,255,255,0.5); transition: color 0.3s, transform 0.5s; cursor: pointer; }
         #settingsIcon:hover { color: #fff; transform: rotate(90deg); }
 
-        /* SIDEBAR */
         .sidebar-container { position: absolute; top: 30px; left: 30px; display: flex; flex-direction: column; gap: 5px; width: 250px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
         #displayTime { font-size: 14px; font-weight: 500; color: #fff; line-height: 1.2; font-variant-numeric: tabular-nums; }
         #displayDate { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 5px; }
@@ -243,22 +234,16 @@
     </div>
 
     <script>
-        // --- KONFIGURACE PRO GITHUB ---
-        // 1. Vygeneruj token: Settings -> Developer Settings -> Personal access tokens (Classic) -> Repo scope
-        // 2. Vlož token a název repozitáře níže
         const GITHUB_TOKEN = "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"; 
         const REPO_OWNER = "matyaskunstmuller";
         const REPO_NAME = "bertik";
 
         let octokit;
         
-        // Inicializace Octokitu po načtení
         document.addEventListener("DOMContentLoaded", () => {
             if(window.Octokit) {
-                // Pozor: V produkci je lepší token neschovávat do klientského kódu,
-                // ale pro tento specifický "Open Memory" projekt je to akceptovatelné riziko.
                 octokit = new window.Octokit({ auth: GITHUB_TOKEN });
-                console.log("Octokit ready");
+                console.log("GitHub ready");
             }
         });
 
@@ -268,7 +253,12 @@
         const sidebarContainer = document.querySelector('.sidebar-container');
         
         statsToggle.addEventListener('click', () => { sidebarContainer.classList.toggle('expanded'); });
-        document.getElementById('introStartBtn').addEventListener('click', () => { introScreen.classList.add('hidden'); });
+        
+        // ZMĚNA: Tlačítko start nyní inicializuje hardware
+        document.getElementById('introStartBtn').addEventListener('click', async () => { 
+            await getDevices(true); 
+            introScreen.classList.add('hidden'); 
+        });
         document.getElementById('settingsIcon').addEventListener('click', () => { introScreen.classList.remove('hidden'); });
 
         // --- PRVKY ---
@@ -291,13 +281,9 @@
         let isSystemOn = true, mediaRecorder, recordedChunks = [], allMemories = [], recordingStartTime = 0;
         let autoRecordInterval, audioContext, analyser, micSource, dataArray, isTimelapseRunning = false; 
         
-        // --- OČI S PROZKOUMÁVÁNÍM (ROAMING) ---
         let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
-        let pupilX = 0, pupilY = 0;
-        let lastEyeUpdate = 0;
-        let lastMouseMoveTime = Date.now();
-        let roamX = 0, roamY = 0;
-        let roamTargetTime = 0;
+        let pupilX = 0, pupilY = 0, lastEyeUpdate = 0, lastMouseMoveTime = Date.now();
+        let roamX = 0, roamY = 0, roamTargetTime = 0;
 
         document.addEventListener('mousemove', (e) => { 
             mouseX = e.clientX; 
@@ -324,7 +310,6 @@
         function triggerBlink() { if(!isSystemOn || videoSelect.value === 'none') return; layerHead.style.opacity = "0"; canvasEyes.style.opacity = "0"; layerBlink.src = "assets/blink_anim.webm"; layerBlink.play(); layerBlink.onended = () => { layerBlink.src = ""; layerHead.style.opacity = "1"; canvasEyes.style.opacity = "1"; }; }
         function triggerTongue() { if(!isSystemOn) return; layerHead.style.opacity = "0"; layerTongue.src = "assets/tongue_action.webm"; layerTongue.play(); layerTongue.onended = () => { layerTongue.src = ""; layerHead.style.opacity = "1"; }; }
         
-        // --- FUNKCE VYKRESLOVÁNÍ OČÍ ---
         function renderEyes() {
             if(isSystemOn && videoSelect.value !== 'none') {
                 const now = Date.now();
@@ -360,27 +345,37 @@
         }
         renderEyes();
 
-        async function getDevices() {
+        // --- HARDWARE START (OPRAVA) ---
+        async function getDevices(forceRequest = false) {
             try {
+                if(forceRequest) {
+                    await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                }
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 while (videoSelect.options.length > 1) videoSelect.remove(1);
                 while (audioSelect.options.length > 1) audioSelect.remove(1);
+                
+                let hasVideo = false, hasAudio = false;
+
                 devices.forEach(d => {
                     const opt = document.createElement('option'); opt.value = d.deviceId; opt.text = d.label || d.kind;
-                    if(d.kind === 'videoinput') videoSelect.appendChild(opt);
-                    if(d.kind === 'audioinput') audioSelect.appendChild(opt);
+                    if(d.kind === 'videoinput') { videoSelect.appendChild(opt); hasVideo = true; }
+                    if(d.kind === 'audioinput') { audioSelect.appendChild(opt); hasAudio = true; }
                 });
-                if (videoSelect.options.length > 1) videoSelect.selectedIndex = 1;
-                if (audioSelect.options.length > 1) audioSelect.selectedIndex = 1;
+
+                if (hasVideo && videoSelect.options.length > 1 && videoSelect.value === 'none') videoSelect.selectedIndex = 1;
+                if (hasAudio && audioSelect.options.length > 1 && audioSelect.value === 'none') audioSelect.selectedIndex = 1;
                 if(isSystemOn) startCamera();
-            } catch(e) { console.warn("Přístup ke kameře odepřen", e); }
+            } catch(e) { console.warn("Kamera error", e); }
         }
 
         async function startCamera() {
             if(!isSystemOn) return;
             updateCharacterState();
-            if (videoSelect.value === 'none') { if(liveVideo.srcObject) liveVideo.srcObject.getVideoTracks().forEach(t => t.stop()); liveVideo.srcObject = null; } 
-            else { 
+            if (videoSelect.value === 'none') { 
+                if(liveVideo.srcObject) liveVideo.srcObject.getVideoTracks().forEach(t => t.stop()); 
+                liveVideo.srcObject = null; 
+            } else { 
                 try { 
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: videoSelect.value } } }); 
                     liveVideo.srcObject = stream; 
@@ -465,7 +460,6 @@
         };
 
         // --- NAHRÁVÁNÍ DO CLOUDU ---
-
         function startRecording() {
             if (videoSelect.value === 'none' && audioSelect.value === 'none') return;
             const tracks = [];
@@ -501,7 +495,6 @@
                                 committer: { name: "Bertik Memory", email: "bertik@system.ai" }
                             });
                             console.log("Odesláno na GitHub");
-                            // Nečekáme na GitHub Actions, jen se tváříme že ok
                             triggerBlink();
                         } catch(e) {
                             console.error("Upload error:", e);
@@ -511,9 +504,7 @@
                 }
                 
                 recordedChunks = []; 
-                // Zkusíme obnovit paměť za chvíli, až to GitHub zpracuje
                 setTimeout(refreshMemories, 5000);
-
                 if(isSystemOn) mediaRecorder.start();
             };
             
@@ -521,8 +512,6 @@
             if(autoRecordInterval) clearInterval(autoRecordInterval);
             autoRecordInterval = setInterval(() => { if(isSystemOn && mediaRecorder.state === 'recording') mediaRecorder.stop(); }, 15000); 
         }
-
-        // --- PŘEHRÁVÁNÍ Z CLOUDU ---
 
         async function switchToMemory(index) {
             index = Math.floor(index); 
@@ -547,17 +536,65 @@
             slider.value = index;
         }
 
-        // Simplexní timelapse (iterace přes videa)
+        // --- ZMĚNA: PODPORA CHUNKŮ ---
         async function runTimelapse() {
-            if(allMemories.length === 0) return;
             document.body.classList.add('memory-active'); 
             freezeFrame.style.opacity = 1;
             
-            let active = vidA; let next = vidB;
-            active.src = allMemories[0].videoUrl;
-            
-            for(let i=0; i<allMemories.length; i++) {
-                 if(!isTimelapseRunning) { switchToMemory(slider.value); return; }
+            // 1. Fáze: Přehrát chunky (pokud existují)
+            let chunkId = 0;
+            const CHUNK_SIZE = 300; // Počet snímků v chunku
+
+            while(isTimelapseRunning) {
+                // Přidáváme náhodné číslo ?t= aby se video neukládalo do cache
+                const chunkUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/chunks/chunk_${chunkId}.webm?t=${Date.now()}`;
+                const videoEl = vidA;
+                
+                // Kontrola zda chunk existuje
+                const exists = await checkUrlExists(chunkUrl);
+                if (!exists) {
+                    console.log("Konec chunků, přecházím na nové vzpomínky...");
+                    break; 
+                }
+
+                // Přehrávání chunku
+                videoEl.src = chunkUrl;
+                await new Promise(resolve => {
+                    videoEl.onloadedmetadata = () => {
+                        videoEl.play();
+                        
+                        const drawLoop = () => {
+                            if(videoEl.paused || videoEl.ended || !isTimelapseRunning) return;
+                            ctxFreeze.drawImage(videoEl, 0, 0, freezeFrame.width, freezeFrame.height);
+                            
+                            // Aktualizace slideru během chunku
+                            if(videoEl.duration > 0) {
+                                const prog = videoEl.currentTime / videoEl.duration;
+                                const virtualIndex = (chunkId * CHUNK_SIZE) + Math.floor(prog * CHUNK_SIZE);
+                                if(virtualIndex < allMemories.length) {
+                                    slider.value = virtualIndex;
+                                    const m = allMemories[virtualIndex];
+                                    if(m) {
+                                        document.getElementById('displayTime').innerText = m.timeStr;
+                                        document.getElementById('displayDate').innerText = m.dateStr;
+                                    }
+                                }
+                            }
+                            requestAnimationFrame(drawLoop);
+                        };
+                        drawLoop();
+                    };
+                    videoEl.onended = resolve;
+                    videoEl.onerror = resolve; 
+                });
+                
+                chunkId++;
+            }
+
+            // 2. Fáze: Přehrát zbytek (co se ještě nevešlo do chunků)
+            const processedCount = chunkId * CHUNK_SIZE;
+            for(let i = processedCount; i < allMemories.length; i++) {
+                 if(!isTimelapseRunning) break;
                  
                  const mem = allMemories[i];
                  slider.value = i;
@@ -565,12 +602,10 @@
                  document.getElementById('displayDate').innerText = mem.dateStr;
                  if(mem.stats) updateStatsDisplay(mem.stats);
 
-                 active.src = mem.videoUrl;
-                 try { await active.play(); } catch(e){}
+                 vidA.src = mem.videoUrl;
+                 try { await vidA.play(); } catch(e){}
                  
-                 // Jednoduchá smyčka - počkáme 100ms a jdeme dál
-                 // (Skutečný timelapse by chtěl načítat dopředu, ale pro web to stačí takto)
-                 ctxFreeze.drawImage(active, 0, 0, freezeFrame.width, freezeFrame.height);
+                 ctxFreeze.drawImage(vidA, 0, 0, freezeFrame.width, freezeFrame.height);
                  await new Promise(r => setTimeout(r, 150)); 
             }
             
@@ -582,6 +617,13 @@
                 memoryVideo.pause(); 
                 slider.value = allMemories.length; 
             }
+        }
+
+        async function checkUrlExists(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch(e) { return false; }
         }
 
         function togglePower() {
@@ -632,7 +674,6 @@
             if (best !== -1) { switchToMemory(best); triggerTongue(); }
         }
 
-        // Načtení databáze z GitHubu
         async function refreshMemories() {
             const url = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/database.json?t=${Date.now()}`;
             try {
@@ -655,15 +696,13 @@
                     if(!document.body.classList.contains('memory-active') && !isTimelapseRunning) slider.value = allMemories.length; 
                 } 
                 slider.disabled = allMemories.length === 0;
-                console.log("Memories updated:", allMemories.length);
             } catch(e) { 
-                console.log("Databáze zatím prázdná nebo nedostupná."); 
+                console.log("Databáze zatím prázdná."); 
             }
         }
 
         slider.oninput = async function() { const index = parseInt(this.value); if(index >= allMemories.length - 1 && allMemories.length > 0) { document.body.classList.remove('memory-active'); memoryVideo.pause(); return; } switchToMemory(index); };
 
-        // Start
         document.fonts.ready.then(() => { getDevices(); refreshMemories(); isSystemOn = false; powerBtn.style.backgroundImage = "url('assets/btn_power_off.png')"; timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; similarBtn.style.backgroundImage = "url('assets/btn_sim_idle.png')"; document.body.classList.add('system-off'); updateCharacterState(); updateStatsDisplay({ volume: 0, bass: 0, treble: 0, brightness: 0, warmth: 0, motion: 0, color: '#000000' }); });
     </script>
 </body>
