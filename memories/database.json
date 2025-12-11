@@ -13968,5 +13968,82 @@
       "brightness": 50,
       "warmth": 50
     }
+  },
+  {
+    "filename": "mem_1765494365837.webm",
+    "timestamp": 1765494365837,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
+  },
+  {
+    "filename": "mem_1765494380883.webm",
+    "timestamp": 1765494380883,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
+  },
+  {
+    "filename": "mem_1765494395835.webm",
+    "timestamp": 1765494395835,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
+  },
+  {
+    "filename": "mem_1765494408419.webm",
+    "timestamp": 1765494408419,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
+  },
+  {
+    "filename": "mem_1765494425612.webm",
+    "timestamp": 1765494425612,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
+  },
+  {
+    "filename": "mem_1765494434891.webm",
+    "timestamp": 1765494434891,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
+  },
+  {
+    "filename": "mem_1765495421997.webm",
+    "timestamp": 1765495421997,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
   }
 ]
