@@ -1,20 +1,22 @@
-name: Bertik Brain (Repair & Optimize)
+name: Bertik Brain (Final Fix)
+
 on:
+  # 1. Spustí se při jakékoliv změně v repozitáři (nejen videa)
   push:
-    paths:
-      - 'memories/**.webm' # Spustí se, když přibude video
+  # 2. Přidává tlačítko "Run workflow" pro ruční spuštění
+  workflow_dispatch:
 
 jobs:
-  repair-and-optimize:
+  repair-database:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Povolení zapisovat
+      contents: write # Povolení zapisovat do repozitáře
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0 # Stáhnout celou historii pro opravu konfliktů
+        fetch-depth: 0 # Nutné pro prevenci konfliktů
 
     - name: Install FFmpeg
       run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -40,28 +42,24 @@ jobs:
         if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
 
         // 2. OPRAVA DATABÁZE (Rebuild)
-        // Načteme existující DB, ale nevěříme jí na 100%
         let db = [];
         try { db = JSON.parse(fs.readFileSync(DB_PATH)); } catch(e) {}
         
-        // Načteme soubory, co tam fyzicky leží
+        // Načteme soubory z disku
         const diskFiles = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
         let dbChanged = false;
         
-        // Rychlá množina pro kontrolu
         const knownSet = new Set(db.map(x => x.filename));
         
-        console.log(\`Nalezeno \${diskFiles.length} souborů na disku.\`);
+        console.log(\`Kontrola: Na disku je \${diskFiles.length} videí.\`);
 
         diskFiles.forEach(f => {
              if(!knownSet.has(f)) {
-                 // Pokud soubor fyzicky existuje, ale není v JSONu -> Přidat!
-                 console.log("Opravuji chybějící záznam v DB:", f);
+                 console.log("Přidávám do DB:", f);
                  const ts = parseInt(f.split('_')[1]) || Date.now();
                  db.push({
                      filename: f, 
                      timestamp: ts,
-                     // Generujeme náhodné statistiky, protože FFmpeg analýza zpětně by trvala hodiny
                      stats: { 
                         volume: 50, 
                         color: '#' + Math.floor(Math.random()*16777215).toString(16), 
@@ -74,22 +72,21 @@ jobs:
              }
         });
         
-        // Seřadit podle času
+        // Seřadit
         db.sort((a,b) => a.timestamp - b.timestamp);
         
         if(dbChanged) {
             fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-            console.log("Databáze úspěšně opravena a uložena.");
+            console.log("Databáze opravena a uložena lokálně.");
         }
 
-        // 3. GENERATOR CHUNKŮ (Optimalizovaný pro web)
+        // 3. GENERATOR CHUNKŮ
         const totalChunks = Math.floor(db.length / CHUNK_SIZE);
 
         for (let i = 0; i < totalChunks; i++) {
             const chunkName = \`chunk_\${i}.webm\`;
             const chunkPath = path.join(CHUNK_DIR, chunkName);
 
-            // Generujeme chunk jen pokud neexistuje
             if (!fs.existsSync(chunkPath)) {
                 console.log(\`Generuji \${chunkName}...\`);
                 const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
@@ -97,34 +94,29 @@ jobs:
                 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
                 try {
-                    // A: Extrakce snímků (rychlá)
+                    // Extrakce
                     slice.forEach((mem, index) => {
                         const vidPath = path.join(MEM_DIR, mem.filename);
                         const imgName = \`img_\${String(index).padStart(3, '0')}.jpg\`; 
                         const imgPath = path.join(tempDir, imgName);
                         try {
-                            // Vezmeme 1. snímek, nízká kvalita JPG stačí pro video
-                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 10 "\${imgPath}" -y\`, { stdio: 'ignore' });
+                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 15 "\${imgPath}" -y\`, { stdio: 'ignore' });
                         } catch (e) {}
                     });
 
-                    // B: Render (Optimalizace bitratu na 1M pro plynulost na webu)
-                    console.log("Renderuji video...");
-                    // ZMĚNA: Bitrate 1M a preset ultrafast = menší soubor, plynulejší přehrávání
-                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 1M -speed 4 -pix_fmt yuv420p "\${chunkPath}"\`);
+                    // Render (nízký bitrate pro plynulost)
+                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 500k -speed 8 -pix_fmt yuv420p "\${chunkPath}"\`);
+                    console.log("Chunk hotov.");
                     
                 } catch (e) { console.error("Chyba renderu:", e); }
-                
-                // Úklid
                 try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch(e) {}
             }
         }
         EOF
 
-        # Spustit skript
         node generator.js
 
-    - name: Commit and Push (Conflict Fix)
+    - name: Commit and Push (Anti-Conflict)
       run: |
         git config --global user.name 'Bertik Bot'
         git config --global user.email 'bot@bertik.ai'
@@ -132,11 +124,9 @@ jobs:
         git add memories/database.json
         git add memories/chunks/*.webm
         
-        git commit -m "Brain healing: DB repaired & chunks optimized" || echo "No changes"
+        git commit -m "System repaired" || echo "No changes to commit"
         
-        # TOTO JE KLÍČOVÉ PROTI ČERVENÉMU KŘÍŽKU:
-        # Nejdřív si stáhneme změny, co jsi udělal ty, a sloučíme je.
+        # 1. Stáhnout tvé změny
         git pull --rebase
-        
-        # Až pak odešleme
+        # 2. Odeslat opravy
         git push
