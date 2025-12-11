@@ -1,22 +1,21 @@
-name: Bertik Brain (Nuclear Option)
+name: Bertik Brain (ORIGINAL AUTOMATION)
 
 on:
-  workflow_dispatch: # Pouze na manuální spuštění tlačítkem
   push:
     paths:
-      - '.github/workflows/**' # Spustí se hned po uložení tohoto souboru
+      - 'memories/**' # SPUSTÍ SE VŽDY, KDYŽ PŘIBUDE SOUBOR VE SLOŽCE
 
 jobs:
-  force-update:
+  process-memories:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-    - name: Checkout (Latest)
+    - name: Checkout
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0 # Stáhne všechno
+        fetch-depth: 0
 
     - name: Install FFmpeg
       run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -26,9 +25,9 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Run Generator
+    - name: Run Processing Logic
       run: |
-        cat <<EOF > generator.js
+        cat <<EOF > script.js
         const fs = require('fs');
         const { execSync } = require('child_process');
         const path = require('path');
@@ -40,52 +39,72 @@ jobs:
 
         if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
 
-        // 1. GENERUJEME NOVOU DATABÁZI OD NULY
-        // Ignorujeme starý poškozený soubor a věříme jen tomu, co je ve složce
-        const diskFiles = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
-        let db = [];
-        
-        console.log(\`Vidím \${diskFiles.length} souborů. Vytvářím novou DB.\`);
+        // 1. DATA MINING (Přečíst co je na disku)
+        // Tohle ignoruje starou databázi a vytvoří čerstvou podle reality
+        const files = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
+        console.log(\`Nalezeno \${files.length} videí.\`);
 
-        diskFiles.forEach(f => {
-             const ts = parseInt(f.split('_')[1]) || Date.now();
-             db.push({
-                 filename: f, 
-                 timestamp: ts,
-                 stats: { 
-                    volume: 50, color: '#888888', motion: 50, brightness: 50, warmth: 50 
-                 } 
-             });
+        const db = files.map(filename => {
+            const timestamp = parseInt(filename.split('_')[1]) || Date.now();
+            return {
+                filename: filename,
+                timestamp: timestamp,
+                stats: { volume: 50, color: '#888888', motion: 50, brightness: 50, warmth: 50 }
+            };
         });
-        
+
+        // Seřadit
         db.sort((a,b) => a.timestamp - b.timestamp);
         fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+        console.log("Databáze aktualizována.");
 
-        // 2. CHUNKY (Jen rychlá kontrola)
+        // 2. CHUNK FACTORY
         const totalChunks = Math.floor(db.length / CHUNK_SIZE);
         for (let i = 0; i < totalChunks; i++) {
             const chunkName = \`chunk_\${i}.webm\`;
             const chunkPath = path.join(CHUNK_DIR, chunkName);
+
             if (!fs.existsSync(chunkPath)) {
-                // ... (zde je stejný kód pro generování jako minule) ...
-                // Pro stručnost vynechávám, protože hlavní je ta DB.
-                // Pokud budeš chtít chunky, vložíme to tam zpět.
-                // Teď prioritizujeme opravu DB.
+                console.log(\`Generuji \${chunkName}...\`);
+                const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                const tempDir = \`temp_img_\${i}\`;
+                
+                if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+                fs.mkdirSync(tempDir);
+
+                try {
+                    // Extrakce
+                    slice.forEach((mem, index) => {
+                        const vidPath = path.join(MEM_DIR, mem.filename);
+                        const imgName = \`img_\${String(index).padStart(3, '0')}.jpg\`; 
+                        const imgPath = path.join(tempDir, imgName);
+                        try {
+                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 15 "\${imgPath}" -y\`, { stdio: 'ignore' });
+                        } catch (e) {}
+                    });
+
+                    // Render
+                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 1M -speed 8 -pix_fmt yuv420p "\${chunkPath}"\`);
+                    console.log(\`Chunk \${i} hotov.\`);
+                } catch (e) { console.error(e); }
+                
+                try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch(e) {}
             }
         }
         EOF
-        node generator.js
+        
+        node script.js
 
-    - name: Force Push
+    - name: Commit and Push
       run: |
         git config --global user.name 'Bertik Bot'
         git config --global user.email 'bot@bertik.ai'
         
-        # Stáhneme úplně nejnovější verzi těsně před zápisem
-        git pull origin main --strategy-option=theirs
-        
         git add memories/database.json
-        git commit -m "Force DB update" || echo "No changes"
+        git add memories/chunks/*.webm
         
-        # Tady je změna: Pushujeme změny
+        git commit -m "Auto-update DB and Chunks" || echo "No changes"
+        
+        # Ochrana: Stáhnout změny před odesláním (aby to nespadlo na křížek)
+        git pull --rebase origin main
         git push origin main
