@@ -1,11 +1,11 @@
-name: Bertik Brain (Timelapse Generator)
+name: Bertik Brain (Robust Fix)
 on:
   push:
     paths:
       - 'memories/**.webm' # Spustí se při nahrání videa
 
 jobs:
-  generate-timelapse:
+  update-brain:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Povolení zapisovat soubory
@@ -14,7 +14,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0
+        fetch-depth: 0 # Stáhnout celou historii
 
     - name: Install FFmpeg
       run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -24,7 +24,7 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Run Timelapse Logic
+    - name: Run Logic
       run: |
         cat <<EOF > generator.js
         const fs = require('fs');
@@ -34,104 +34,93 @@ jobs:
         const MEM_DIR = 'memories';
         const CHUNK_DIR = 'memories/chunks';
         const DB_PATH = 'memories/database.json';
-        
-        // PŮVODNÍ NASTAVENÍ: 300 videí = 1 chunk
         const CHUNK_SIZE = 300; 
 
-        // 1. Vytvoření složek
         if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
 
-        // 2. Načtení databáze
+        // 1. ZNOVU NAČÍST VŠECHNY SOUBORY (Oprava DB)
+        // Robot se nebude spoléhat na starou DB, ale projde složku znova
         let db = [];
         try { db = JSON.parse(fs.readFileSync(DB_PATH)); } catch(e) {}
         
-        // Seřadíme pro jistotu podle času
-        db.sort((a, b) => a.timestamp - b.timestamp);
-
-        // 3. Kontrola a generování chybějících chunků
-        const totalChunks = Math.floor(db.length / CHUNK_SIZE);
-        console.log(\`Databáze má \${db.length} vzpomínek. Mělo by existovat \${totalChunks} chunků.\`);
-
-        for (let i = 0; i < totalChunks; i++) {
-            const chunkName = \`chunk_\${i}.webm\`;
-            const chunkPath = path.join(CHUNK_DIR, chunkName);
-
-            // Pokud chunk neexistuje, vygenerujeme ho
-            if (!fs.existsSync(chunkPath)) {
-                console.log(\`Generuji \${chunkName} (z indexu \${i * CHUNK_SIZE} do \${(i+1)*CHUNK_SIZE})...\`);
-                
-                const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                const tempDir = \`temp_img_\${i}\`;
-                if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-
-                try {
-                    // KROK A: Extrakce jednoho snímku z každého videa
-                    slice.forEach((mem, index) => {
-                        const vidPath = path.join(MEM_DIR, mem.filename);
-                        // Formátování názvu img_000.jpg, img_001.jpg...
-                        const imgName = \`img_\${String(index).padStart(3, '0')}.jpg\`; 
-                        const imgPath = path.join(tempDir, imgName);
-                        
-                        // Zkusíme vzít snímek v čase 0:00 (nejbezpečnější pro webová videa)
-                        // q:v 2 zajistí vysokou kvalitu jpg
-                        try {
-                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 2 "\${imgPath}" -y\`, { stdio: 'ignore' });
-                        } catch (e) {
-                            console.error(\`Chyba extrakce u \${mem.filename}, přeskakuji.\`);
-                        }
-                    });
-
-                    // KROK B: Slepení obrázků do videa
-                    // -framerate 60 znamená, že 300 obrázků přehraje za 5 sekund
-                    // -c:v libvpx-vp9 je kodek pro web
-                    // -pix_fmt yuv420p pro kompatibilitu
-                    console.log("Renderuji video...");
-                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 3M -pix_fmt yuv420p "\${chunkPath}"\`);
-                    
-                    console.log(\`Chunk \${i} hotov!\`);
-
-                } catch (e) {
-                    console.error("Kritická chyba při renderu:", e);
-                }
-
-                // Úklid dočasných obrázků
-                fs.rmSync(tempDir, { recursive: true, force: true });
-            }
-        }
-        
-        // 4. Jednoduchá aktualizace DB pro nové soubory (pokud chybí v indexu)
-        // Toto běží vždy, aby se zapsaly nové uploady do database.json
         const diskFiles = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
-        const knownSet = new Set(db.map(x => x.filename));
         let dbChanged = false;
+        
+        // Pokud je soubor na disku, ale ne v DB, přidáme ho
+        const knownSet = new Set(db.map(x => x.filename));
         
         diskFiles.forEach(f => {
              if(!knownSet.has(f)) {
+                 console.log("Opravuji chybějící záznam:", f);
                  const ts = parseInt(f.split('_')[1]) || Date.now();
                  db.push({
-                     filename: f, timestamp: ts,
-                     stats: { volume: 50, color: '#888888', motion: 50, brightness: 50, warmth: 50 } // Fallback stats
+                     filename: f, 
+                     timestamp: ts,
+                     stats: { volume: 50, color: '#888888', motion: 50, brightness: 50, warmth: 50 } 
                  });
                  dbChanged = true;
              }
         });
         
+        // Seřadit
+        db.sort((a,b) => a.timestamp - b.timestamp);
+        
         if(dbChanged) {
-            db.sort((a,b) => a.timestamp - b.timestamp);
             fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+            console.log("Databáze opravena.");
+        }
+
+        // 2. GENERATOR CHUNKŮ (Optimalizovaný)
+        const totalChunks = Math.floor(db.length / CHUNK_SIZE);
+
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkName = \`chunk_\${i}.webm\`;
+            const chunkPath = path.join(CHUNK_DIR, chunkName);
+
+            if (!fs.existsSync(chunkPath)) {
+                console.log(\`Generuji \${chunkName}...\`);
+                const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                const tempDir = \`temp_img_\${i}\`;
+                if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+                try {
+                    // A: Extrakce
+                    slice.forEach((mem, index) => {
+                        const vidPath = path.join(MEM_DIR, mem.filename);
+                        const imgName = \`img_\${String(index).padStart(3, '0')}.jpg\`; 
+                        const imgPath = path.join(tempDir, imgName);
+                        try {
+                            // Rychlá extrakce
+                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 5 "\${imgPath}" -y\`, { stdio: 'ignore' });
+                        } catch (e) {}
+                    });
+
+                    // B: Render (Optimalizace bitratu na 1M pro plynulost)
+                    console.log("Renderuji...");
+                    // Změna: -b:v 1M (místo 3M) a -crf 30 (menší kvalita, ale plynulé)
+                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 1M -crf 30 -pix_fmt yuv420p "\${chunkPath}"\`);
+                    
+                } catch (e) { console.error("Chyba renderu:", e); }
+                
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            }
         }
         EOF
 
-        # Spustit skript
         node generator.js
 
-    - name: Commit and Push
+    - name: Commit and Push (Conflict Fix)
       run: |
         git config --global user.name 'Bertik Bot'
         git config --global user.email 'bot@bertik.ai'
         
-        git add memories/chunks/*.webm
         git add memories/database.json
+        git add memories/chunks/*.webm
         
-        git commit -m "Auto-generate timelapse chunks" || echo "No changes"
+        git commit -m "Brain auto-update" || echo "No changes"
+        
+        # TOTO JE TA OPRAVA PROTI ČERVENÉMU KŘÍŽKU:
+        # 1. Stáhnout změny, co jsi udělal ty (pull)
+        # 2. Až pak odeslat moje změny (push)
+        git pull --rebase
         git push
