@@ -1,18 +1,20 @@
-name: Bertik Brain Processing
+name: Bertik Brain (Timelapse Generator)
 on:
   push:
     paths:
-      - 'memories/**.webm' # Spustí se jen když přibude video
+      - 'memories/**.webm' # Spustí se při nahrání videa
 
 jobs:
-  analyze-memory:
+  generate-timelapse:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Povolení aktualizovat databázi
+      contents: write # Povolení zapisovat soubory
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
     - name: Install FFmpeg
       run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -22,74 +24,114 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Run Analysis Script
+    - name: Run Timelapse Logic
       run: |
-        # Vytvoříme skript pro analýzu přímo zde
-        cat <<EOF > analyze.js
+        cat <<EOF > generator.js
         const fs = require('fs');
         const { execSync } = require('child_process');
+        const path = require('path');
+
+        const MEM_DIR = 'memories';
+        const CHUNK_DIR = 'memories/chunks';
+        const DB_PATH = 'memories/database.json';
         
-        const memoriesDir = 'memories';
-        const dbPath = 'memories/database.json';
-        
-        // Načíst nebo vytvořit DB
+        // PŮVODNÍ NASTAVENÍ: 300 videí = 1 chunk
+        const CHUNK_SIZE = 300; 
+
+        // 1. Vytvoření složek
+        if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
+
+        // 2. Načtení databáze
         let db = [];
-        try { db = JSON.parse(fs.readFileSync(dbPath)); } catch(e) {}
+        try { db = JSON.parse(fs.readFileSync(DB_PATH)); } catch(e) {}
         
-        const files = fs.readdirSync(memoriesDir).filter(f => f.endsWith('.webm'));
-        const knownFiles = new Set(db.map(x => x.filename));
-        let changed = false;
+        // Seřadíme pro jistotu podle času
+        db.sort((a, b) => a.timestamp - b.timestamp);
 
-        files.forEach(file => {
-            if (!knownFiles.has(file)) {
-                console.log('Analyzuji nové video:', file);
-                const filePath = \`\${memoriesDir}/\${file}\`;
-                const timestamp = parseInt(file.split('_')[1]) || Date.now();
+        // 3. Kontrola a generování chybějících chunků
+        const totalChunks = Math.floor(db.length / CHUNK_SIZE);
+        console.log(\`Databáze má \${db.length} vzpomínek. Mělo by existovat \${totalChunks} chunků.\`);
 
-                // 1. Získat dominantní barvu a jas pomocí FFmpeg
-                // Tento příkaz vezme jeden snímek a vypočítá průměrnou barvu
-                let color = '#000000';
-                let brightness = 0;
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkName = \`chunk_\${i}.webm\`;
+            const chunkPath = path.join(CHUNK_DIR, chunkName);
+
+            // Pokud chunk neexistuje, vygenerujeme ho
+            if (!fs.existsSync(chunkPath)) {
+                console.log(\`Generuji \${chunkName} (z indexu \${i * CHUNK_SIZE} do \${(i+1)*CHUNK_SIZE})...\`);
+                
+                const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                const tempDir = \`temp_img_\${i}\`;
+                if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
                 try {
-                    const cmd = \`ffmpeg -i \${filePath} -vframes 1 -f image2pipe -vcodec ppm - 2>/dev/null | convert - -resize 1x1 txt:-\`;
-                    // Poznámka: GitHub Actions image má ImageMagick (convert), využijeme ho pro zjednodušení
-                    // Pokud to selže, dáme default.
-                } catch(e) {}
+                    // KROK A: Extrakce jednoho snímku z každého videa
+                    slice.forEach((mem, index) => {
+                        const vidPath = path.join(MEM_DIR, mem.filename);
+                        // Formátování názvu img_000.jpg, img_001.jpg...
+                        const imgName = \`img_\${String(index).padStart(3, '0')}.jpg\`; 
+                        const imgPath = path.join(tempDir, imgName);
+                        
+                        // Zkusíme vzít snímek v čase 0:00 (nejbezpečnější pro webová videa)
+                        // q:v 2 zajistí vysokou kvalitu jpg
+                        try {
+                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 2 "\${imgPath}" -y\`, { stdio: 'ignore' });
+                        } catch (e) {
+                            console.error(\`Chyba extrakce u \${mem.filename}, přeskakuji.\`);
+                        }
+                    });
 
-                // Zjednodušená náhodná "analýza" pro demo (protože parsing ffmpeg outputu v bash/js je peklo)
-                // Ale můžeme sem dát reálnou logiku, pokud chceš.
-                // Prozatím, aby to fungovalo spolehlivě:
-                const stats = {
-                    brightness: Math.floor(Math.random() * 100),
-                    warmth: Math.floor(Math.random() * 100),
-                    motion: Math.floor(Math.random() * 100),
-                    color: '#' + Math.floor(Math.random()*16777215).toString(16),
-                    volume: 50
-                };
+                    // KROK B: Slepení obrázků do videa
+                    // -framerate 60 znamená, že 300 obrázků přehraje za 5 sekund
+                    // -c:v libvpx-vp9 je kodek pro web
+                    // -pix_fmt yuv420p pro kompatibilitu
+                    console.log("Renderuji video...");
+                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 3M -pix_fmt yuv420p "\${chunkPath}"\`);
+                    
+                    console.log(\`Chunk \${i} hotov!\`);
 
-                db.push({
-                    filename: file,
-                    timestamp: timestamp,
-                    stats: stats
-                });
-                changed = true;
+                } catch (e) {
+                    console.error("Kritická chyba při renderu:", e);
+                }
+
+                // Úklid dočasných obrázků
+                fs.rmSync(tempDir, { recursive: true, force: true });
             }
+        }
+        
+        // 4. Jednoduchá aktualizace DB pro nové soubory (pokud chybí v indexu)
+        // Toto běží vždy, aby se zapsaly nové uploady do database.json
+        const diskFiles = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
+        const knownSet = new Set(db.map(x => x.filename));
+        let dbChanged = false;
+        
+        diskFiles.forEach(f => {
+             if(!knownSet.has(f)) {
+                 const ts = parseInt(f.split('_')[1]) || Date.now();
+                 db.push({
+                     filename: f, timestamp: ts,
+                     stats: { volume: 50, color: '#888888', motion: 50, brightness: 50, warmth: 50 } // Fallback stats
+                 });
+                 dbChanged = true;
+             }
         });
-
-        if (changed) {
-            db.sort((a, b) => a.timestamp - b.timestamp);
-            fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
-            console.log('Databáze aktualizována.');
+        
+        if(dbChanged) {
+            db.sort((a,b) => a.timestamp - b.timestamp);
+            fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
         }
         EOF
-        
-        # Spustit skript
-        node analyze.js
 
-    - name: Commit changes
+        # Spustit skript
+        node generator.js
+
+    - name: Commit and Push
       run: |
         git config --global user.name 'Bertik Bot'
         git config --global user.email 'bot@bertik.ai'
+        
+        git add memories/chunks/*.webm
         git add memories/database.json
-        git commit -m "Brain update: New memories analyzed" || echo "No changes"
+        
+        git commit -m "Auto-generate timelapse chunks" || echo "No changes"
         git push
