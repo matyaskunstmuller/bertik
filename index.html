@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v7.5 (Fast Upload & Fixes)</title>
+    <title>Bertik v7.5 (Fixed PC Lag)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -33,8 +33,13 @@
         #chunkVideo { display: none; } /* Hlavní přehrávač časosběru */
         #thumbPreview { display: none; object-fit: contain; background: #000; }
 
-        /* Preloader pro časosběr (neviditelný, jen tahá data) */
-        #preloadVideo { display: none; width: 1px; height: 1px; }
+        /* UPRAVENO: Preloader pro časosběr (nyní plnohodnotná vrstva pro swapování) */
+        #preloadVideo { 
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            z-index: 1; background: #000; 
+            object-fit: cover; transition: object-fit 0.3s;
+            display: none; 
+        }
 
         /* --- 2. VRSTVA: AVATAR (Uprostřed, Z-INDEX 10) --- */
         .center-stage { 
@@ -296,6 +301,7 @@
             el.live.style.objectFit = mode;
             el.play.style.objectFit = mode;
             el.chunk.style.objectFit = mode;
+            el.preload.style.objectFit = mode;
             el.thumb.style.objectFit = mode;
         });
 
@@ -322,8 +328,9 @@
             el.live.style.display = 'none';
             el.play.style.display = 'none';
             el.chunk.style.display = 'none';
+            el.preload.style.display = 'none';
             el.thumb.style.display = 'none';
-            el.play.pause(); el.chunk.pause();
+            el.play.pause(); el.chunk.pause(); el.preload.pause();
 
             // Tlačítka
             el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
@@ -354,12 +361,12 @@
             
             } else if (mode === STATE.TIME) {
                 stopRec();
-                el.chunk.style.display = 'block';
+                // Spuštění časosběru
                 runTimelapse();
             }
         }
 
-        // --- AVATAR (Fix Glitches) ---
+        // --- AVATAR ---
         document.addEventListener('mousemove', (e) => { 
             mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); 
         });
@@ -386,7 +393,6 @@
                 const W = el.eyes.width; const H = el.eyes.height;
                 ctxEyes.clearRect(0,0,W,H); 
                 
-                // Vykreslit oči jen pokud nemrkáme
                 if(srcMask.readyState>=2 && el.headB.style.opacity == 1) {
                     ctxEyes.globalCompositeOperation='source-over'; ctxEyes.drawImage(srcMask,0,0,W,H); 
                     ctxEyes.globalCompositeOperation='source-in'; ctxEyes.drawImage(srcPupils,pupilX,pupilY,W,H); 
@@ -398,19 +404,10 @@
 
         function triggerBlink() {
             if(state===STATE.OFF) return;
-            // SKRÝT OSTATNÍ
-            el.headB.style.opacity=0; 
-            el.eyes.style.opacity=0; // Tím zmizí i zorničky
-            
-            el.blink.src = "assets/blink_anim.webm"; 
-            el.blink.style.opacity=1; 
-            el.blink.play();
-            
+            el.headB.style.opacity=0; el.eyes.style.opacity=0; 
+            el.blink.src = "assets/blink_anim.webm"; el.blink.style.opacity=1; el.blink.play();
             el.blink.onended = () => { 
-                el.blink.style.opacity=0; 
-                // OBNOVIT
-                el.headB.style.opacity=1; 
-                el.eyes.style.opacity=1; 
+                el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; 
             };
         }
         function triggerTongue() {
@@ -468,52 +465,135 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (SINGLE PLAYER BUFF) ---
+        // --- ČASOSBĚR (BLOB SYSTEM - FIX PRO PC) ---
         let chunkId = 0;
         const CHUNK_SIZE = 300; 
+        
+        // Používáme dva přehrávače na střídačku (Ping-Pong)
+        let activePlayer = el.chunk;
+        let nextPlayer = el.preload; 
+        
+        // Cache pro předstažená data
+        let nextBlobUrl = null; 
+        let isDownloading = false;
 
-        async function runTimelapse() {
+        function runTimelapse() {
             chunkId = 0;
-            playNextChunk();
+            // Reset rolí přehrávačů
+            activePlayer = el.chunk;
+            nextPlayer = el.preload;
+            nextBlobUrl = null;
+            
+            activePlayer.style.display = 'none';
+            nextPlayer.style.display = 'none';
+            
+            // Spustit smyčku stahování a přehrávání
+            downloadAndPlayLoop();
         }
 
-        async function playNextChunk() {
+        async function downloadAndPlayLoop() {
             if(state !== STATE.TIME) return;
 
+            // URL aktuálního chunku
             const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
-            const ok = await fetch(url, {method:'HEAD'}).then(r=>r.ok).catch(()=>false);
-            if(!ok) { setState(STATE.LIVE); return; } // Konec
 
-            el.chunk.src = url;
+            // Pokud už máme předstaženo z minula, použijeme to. Jinak stahujeme teď.
+            let blobUrl = nextBlobUrl;
+            if (!blobUrl) {
+                blobUrl = await fetchVideoAsBlob(url);
+            }
+            // Vyčistíme cache pro další kolo
+            nextBlobUrl = null;
+
+            // Pokud se stažení nepovedlo (konec souborů nebo chyba sítě), končíme
+            if (!blobUrl) {
+                setState(STATE.LIVE);
+                return;
+            }
+
+            // Přehrát
+            playBlob(blobUrl);
+        }
+
+        function playBlob(blobUrl) {
+            // Nastavit zdroj a zobrazit aktivní přehrávač
+            activePlayer.src = blobUrl;
+            activePlayer.style.display = 'block';
             
-            // Preload dalšího chunku do paměti (aby se nesekalo)
-            const nextUrl = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId+1}.webm`;
-            el.preload.src = nextUrl; // Prohlížeč si to nacachuje
+            // Druhý přehrávač skryjeme
+            nextPlayer.style.display = 'none';
+            
+            // Pokud v druhém přehrávači visí starý blob, uvolníme paměť
+            if(nextPlayer.src && nextPlayer.src.startsWith('blob:')) {
+                URL.revokeObjectURL(nextPlayer.src);
+            }
 
-            try {
-                await el.chunk.play();
+            // Co dělat, až video skončí
+            activePlayer.onended = () => {
+                chunkId++;
+                // Prohodíme hráče (Swap)
+                const temp = activePlayer;
+                activePlayer = nextPlayer;
+                nextPlayer = temp;
                 
-                // Slider fake animace
-                const anim = setInterval(() => {
-                    if(state !== STATE.TIME) { clearInterval(anim); return; }
-                    const p = el.chunk.currentTime / el.chunk.duration;
-                    el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
-                }, 200);
+                // Jdeme na další kolo
+                downloadAndPlayLoop();
+            };
 
-                el.chunk.onended = () => {
-                    clearInterval(anim);
-                    chunkId++;
-                    playNextChunk(); // Další
-                };
+            activePlayer.onerror = () => setState(STATE.LIVE);
 
-            } catch(e) { setState(STATE.LIVE); }
+            // Spustíme přehrávání
+            activePlayer.play().then(() => {
+                // Animace slideru
+                animateSlider(activePlayer);
+                
+                // !! PŘEDNAČTENÍ DALŠÍHO !!
+                // Zatímco hraje aktuální video, stahujeme už to příští na pozadí
+                preloadNext(chunkId + 1);
+            }).catch(e => {
+                // Pokud uživatel rychle překlikl pryč nebo play selhalo
+                if(state === STATE.TIME) setState(STATE.LIVE);
+            });
+        }
+
+        async function preloadNext(idx) {
+            if(isDownloading) return;
+            isDownloading = true;
+            const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${idx}.webm`;
+            const blob = await fetchVideoAsBlob(url);
+            if(blob) nextBlobUrl = blob;
+            isDownloading = false;
+        }
+
+        // Pomocná funkce: Stáhne video a vyrobí z něj Blob URL
+        // Toto řeší sekání na PC - video se pustí až když je celé v RAM
+        async function fetchVideoAsBlob(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) return null;
+                const blob = await response.blob();
+                return URL.createObjectURL(blob);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function animateSlider(player) {
+            if(player.animInt) clearInterval(player.animInt);
+            player.animInt = setInterval(() => {
+                if(state !== STATE.TIME || player.paused) { 
+                    clearInterval(player.animInt); return; 
+                }
+                const p = player.currentTime / (player.duration || 1);
+                el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
+            }, 200);
         }
 
         function stopTimelapseAndShow() {
-            const progress = el.chunk.currentTime / (el.chunk.duration || 1);
+            const player = (activePlayer.style.display !== 'none') ? activePlayer : nextPlayer;
+            const progress = player.currentTime / (player.duration || 1);
             const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
             
-            // Okamžité zastavení smyčky
             setState(STATE.PLAY).then(() => {
                 if(realIdx < memories.length) {
                     el.slider.value = realIdx;
@@ -572,12 +652,16 @@
 
         function startRec() {
             if(!el.live.srcObject)return;
-            mediaRecorder=new MediaRecorder(el.live.srcObject,{mimeType:'video/webm;codecs=vp9'});
+            // UPRAVENO: Přidán bitrate limit pro budoucí nahrávky (prevence sekání)
+            mediaRecorder=new MediaRecorder(el.live.srcObject,{
+                mimeType:'video/webm;codecs=vp9',
+                videoBitsPerSecond: 1500000 // 1.5 Mbps
+            });
             mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
             mediaRecorder.onstop=upload;
             mediaRecorder.start();
             clearInterval(recInterval);
-            // RYCHLEJŠÍ UPLOAD: Každých 15 sekund (15000 ms)
+            // 15 sekundové nahrávání
             recInterval=setInterval(()=>{if(mediaRecorder.state==='recording')mediaRecorder.stop();},15000);
         }
         function stopRec(){if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();clearInterval(recInterval);}
