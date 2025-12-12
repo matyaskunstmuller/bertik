@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v7.1 (Timelapse Fix)</title>
+    <title>Bertik v7.2 (Smooth PC Fix)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -27,13 +27,17 @@
             z-index: 1; background: #000; 
             object-fit: cover; transition: object-fit 0.3s;
         }
+        
+        /* FIX: Skrývání pomocí opacity, ne display:none (aby dekodér nevypnul) */
+        .hidden-video { opacity: 0; pointer-events: none; }
+        .visible-video { opacity: 1; pointer-events: auto; }
+
         #liveVideo { transform: scaleX(-1); }
-        #playbackVideo { display: none; }
         
-        /* Dva přehrávače pro plynulý přechod */
-        #chunkA, #chunkB { display: none; } 
+        /* Přehrávače časosběru (musí být absolutní pozice přes sebe) */
+        #chunkA, #chunkB { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
         
-        #thumbPreview { display: none; object-fit: contain; background: #000; }
+        #thumbPreview { display: none; object-fit: contain; background: #000; z-index: 2; }
 
         /* --- 2. VRSTVA: AVATAR (Uprostřed, Z-INDEX 10) --- */
         .center-stage { 
@@ -155,13 +159,13 @@
         <button id="startBtn" class="interactive">SPUSTIT</button>
     </div>
 
-    <video id="liveVideo" class="video-layer" autoplay muted playsinline></video>
-    <video id="playbackVideo" class="video-layer" playsinline></video>
+    <video id="liveVideo" class="video-layer hidden-video" autoplay muted playsinline></video>
+    <video id="playbackVideo" class="video-layer hidden-video" playsinline></video>
     
-    <video id="chunkA" class="video-layer" playsinline></video>
-    <video id="chunkB" class="video-layer" playsinline></video>
+    <video id="chunkA" class="video-layer hidden-video" playsinline></video>
+    <video id="chunkB" class="video-layer hidden-video" playsinline></video>
     
-    <img id="thumbPreview" class="video-layer">
+    <img id="thumbPreview" class="video-layer" style="display:none">
 
     <video id="srcMask" src="assets/eyes_alpha_channel.webm" loop muted playsinline style="display:none"></video>
     <video id="srcPupils" src="assets/eyes_zornicky.webm" loop muted playsinline style="display:none"></video>
@@ -214,7 +218,7 @@
     <script>
         // --- CONFIG ---
         const CAST_1 = "ghp_"; 
-        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! ZMĚNIT TOKEN !!!
+        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! TOKEN !!!
         const TOKEN = CAST_1 + CAST_2;
         const REPO = { owner: "matyaskunstmuller", name: "bertik" };
 
@@ -226,7 +230,6 @@
         let memories = [];
         let recInterval, analysisInterval;
         let camId, micId;
-        
         let isCover = true; 
 
         // Avatar
@@ -308,7 +311,7 @@
 
         el.btnTime.addEventListener('click', () => {
             if (state === STATE.OFF) return;
-            if (state === STATE.TIME) stopTimelapseAndShow(); // <-- TADY JE TA OPRAVA
+            if (state === STATE.TIME) stopTimelapseAndShow(); 
             else setState(STATE.TIME);
         });
 
@@ -316,14 +319,16 @@
             if (state !== STATE.OFF) findSimilar();
         });
 
-        // --- STAVY ---
+        // --- STAVY (SMOOTH TRANSITIONS) ---
         async function setState(mode) {
             state = mode;
-            // Skrýt vše
-            el.live.style.display = 'none';
-            el.play.style.display = 'none';
-            el.chunkA.style.display = 'none';
-            el.chunkB.style.display = 'none';
+            
+            // Helper pro přepínání viditelnosti
+            const show = (elem) => { elem.classList.remove('hidden-video'); elem.classList.add('visible-video'); };
+            const hide = (elem) => { elem.classList.remove('visible-video'); elem.classList.add('hidden-video'); };
+
+            // Reset
+            hide(el.live); hide(el.play); hide(el.chunkA); hide(el.chunkB);
             el.thumb.style.display = 'none';
             el.play.pause(); el.chunkA.pause(); el.chunkB.pause();
 
@@ -340,7 +345,7 @@
             } else if (mode === STATE.LIVE) {
                 await initCam();
                 startRec(); startAnalysis();
-                el.live.style.display = 'block';
+                show(el.live);
                 el.headS.style.display = 'none';
                 el.headB.style.opacity=1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
                 el.headB.play(); el.ears.play();
@@ -349,15 +354,16 @@
 
             } else if (mode === STATE.PLAY) {
                 stopRec();
-                el.play.style.display = 'block';
+                show(el.play);
             
             } else if (mode === STATE.TIME) {
                 stopRec();
+                // Pro časosběr neukazujeme nic hned, až se načte chunk
                 runTimelapse();
             }
         }
 
-        // --- AVATAR (Original) ---
+        // --- AVATAR ---
         document.addEventListener('mousemove', (e) => { 
             mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); 
         });
@@ -410,11 +416,13 @@
         el.slider.addEventListener('input', () => {
             if(state===STATE.OFF) return;
             if(state!==STATE.PLAY) setState(STATE.PLAY);
-            el.play.style.display='none'; el.thumb.style.display='block';
+            el.play.classList.remove('visible-video'); el.play.classList.add('hidden-video'); // Hide video during seek
+            el.thumb.style.display='block';
             
             const idx = parseInt(el.slider.value);
             if(idx >= memories.length) {
-                el.thumb.style.display='none'; el.live.style.display='block';
+                el.thumb.style.display='none'; 
+                // Show live preview if possible? Or just wait.
             } else {
                 const tIdx = Math.floor(idx/5)*5;
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg`;
@@ -428,7 +436,10 @@
         });
 
         async function playMem(idx) {
-            el.thumb.style.display='none'; el.play.style.display='block';
+            el.thumb.style.display='none';
+            // Show play video
+            el.play.classList.remove('hidden-video'); el.play.classList.add('visible-video');
+            
             const mem = memories[idx];
             if(!mem) return;
             el.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
@@ -453,20 +464,19 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (OPRAVA ZASTAVENÍ) ---
+        // --- ČASOSBĚR (PC FIX) ---
         let chunkId = 0;
         let activePlayer = 'A';
         const CHUNK_SIZE = 300;
         let nextChunkBlob = null;
 
         async function runTimelapse() {
-            chunkId = 0;
-            activePlayer = 'A';
+            chunkId = 0; activePlayer = 'A';
             playNextChunk(0);
         }
 
         async function playNextChunk(id) {
-            if(state !== STATE.TIME) return; // Kontrola zda má běžet
+            if(state !== STATE.TIME) return;
 
             let blob = nextChunkBlob;
             if(!blob) {
@@ -478,12 +488,18 @@
             const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
             const other = activePlayer === 'A' ? el.chunkB : el.chunkA;
             
+            // Clean memory from previous chunk
+            if(player.src) URL.revokeObjectURL(player.src);
+
             player.src = URL.createObjectURL(blob);
-            player.style.display = 'block';
-            other.style.display = 'none';
+            
+            // Swap visibility using Opacity (No decoder reset!)
+            player.classList.remove('hidden-video'); player.classList.add('visible-video');
+            other.classList.remove('visible-video'); other.classList.add('hidden-video');
 
             try { await player.play(); } catch(e) { setState(STATE.LIVE); return; }
 
+            // Preload next
             fetchChunkBlob(id + 1).then(b => nextChunkBlob = b);
 
             const anim = setInterval(() => {
@@ -510,19 +526,16 @@
         }
 
         function stopTimelapseAndShow() {
+            // Safe Stop
             const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
             const progress = player.currentTime / (player.duration || 1);
             const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
             
-            // 1. NEJDŘÍV ZMĚNIT STAV (zastaví smyčku)
             setState(STATE.PLAY).then(() => {
-                // 2. POTOM PUSTIT VIDEO
                 if(realIdx < memories.length) {
                     el.slider.value = realIdx;
                     playMem(realIdx);
-                } else {
-                    setState(STATE.LIVE);
-                }
+                } else { setState(STATE.LIVE); }
             });
         }
 
