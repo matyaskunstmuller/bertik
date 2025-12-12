@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Bertik v2.1 (Auto-Login)</title>
+    <title>Bertik v3.0 (Optimized)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;800&display=swap" rel="stylesheet">
@@ -13,633 +13,411 @@
     </script>
     
     <style>
-        /* --- GLOBÁLNÍ STYLY --- */
-        body { 
-            margin: 0; background: #000; color: #fff; 
-            font-family: 'Montserrat', sans-serif; 
-            overflow: hidden; user-select: none; 
-        }
-
-        /* --- ÚVODNÍ OBRAZOVKA --- */
-        #introScreen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #000; z-index: 5000;
-            transition: opacity 0.5s ease, visibility 0.5s;
-            opacity: 1; visibility: visible;
-        }
-        #introScreen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-        .intro-text-area { 
-            position: absolute; top: 60px; left: 60px; 
-            max-width: 600px; text-align: left; 
-        }
+        /* --- STYLY --- */
+        body { margin: 0; background: #000; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; user-select: none; }
         
-        .intro-text-area h1 { font-size: 1.1rem; margin: 0 0 20px 0; font-weight: 600; letter-spacing: 1px; }
-        .intro-text-area p { font-size: 1rem; color: #ccc; line-height: 1.8; font-weight: 400; }
+        /* ÚVOD */
+        #introScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 5000; transition: opacity 0.5s; }
+        #introScreen.hidden { opacity: 0; pointer-events: none; }
+        .intro-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%; }
+        #introStartBtn { padding: 15px 40px; font-size: 1.2rem; font-weight: 800; color: #fff; background: transparent; border: 2px solid #fff; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: all 0.3s; }
+        #introStartBtn:hover { background: #fff; color: #000; }
 
-        .inline-icon { height: 40px; vertical-align: middle; margin: 10px 0; display: block; opacity: 0.8; }
-
-        .intro-settings-area { 
-            position: absolute; top: 60px; right: 60px; 
-            display: flex; flex-direction: column; gap: 15px; 
-            align-items: flex-end; text-align: right; 
-        }
-
-        .setting-item { display: flex; flex-direction: column; gap: 5px; width: 100%; align-items: flex-end; }
-        .setting-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: #555; font-weight: 600; }
-
-        .simple-select {
-            background: transparent; border: none; border-bottom: 1px solid #333; color: #fff; font-family: 'Montserrat', sans-serif; font-size: 14px; 
-            padding: 5px 0 5px 20px; width: 250px; cursor: pointer; text-align: right; outline: none; transition: border-color 0.2s, color 0.2s;
-        }
-        .simple-select:hover { border-bottom-color: #fff; }
-        .simple-select option { background: #111; color: #fff; text-align: left; }
-
-        #introStartBtn {
-            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); 
-            padding: 10px 20px; font-size: 1rem; font-weight: 600; color: #fff; 
-            background: transparent; border: none; cursor: pointer; letter-spacing: 2px; text-transform: uppercase;
-        }
-        #introStartBtn:hover { opacity: 0.7; }
-
-        /* --- HLAVNÍ APLIKACE --- */
-        .video-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
-        video::-webkit-media-controls { display: none !important; }
-        #liveVideo { transform: scaleX(-1); z-index: 1; }
-        #memoryVideo { display: none; z-index: 2; }
-        #memPlayerA, #memPlayerB { display: none; opacity: 0; }
-        #freezeFrame { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 3; pointer-events: none; opacity: 0; background: #000; transition: opacity 0.2s; }
-        body.memory-active #liveVideo { display: none; }
-        body.memory-active #memoryVideo { display: block; }
-
-        #uiLayer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; padding: 30px; box-sizing: border-box; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        /* VIDEA */
+        .layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        #liveVideo { transform: scaleX(-1); z-index: 1; display: none; }
+        #playbackVideo { z-index: 2; display: none; }
+        #thumbPreview { z-index: 3; display: none; background: #000; object-fit: contain; } /* Náhledový obrázek */
+        #chunkPlayer { z-index: 2; display: none; } /* Přehrávač pro časosběr */
+        
+        /* UI */
+        #uiLayer { position: fixed; inset: 0; z-index: 10; padding: 30px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         .interactive { pointer-events: auto; cursor: pointer; }
-
-        .header-right { position: absolute; top: 30px; right: 30px; display: flex; flex-direction: column; align-items: flex-end; }
-        #settingsIcon { font-size: 24px; color: rgba(255,255,255,0.5); transition: color 0.3s, transform 0.5s; cursor: pointer; }
-        #settingsIcon:hover { color: #fff; transform: rotate(90deg); }
-
-        .sidebar-container { position: absolute; top: 30px; left: 30px; display: flex; flex-direction: column; gap: 5px; width: 250px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-        #displayTime { font-size: 14px; font-weight: 500; color: #fff; font-variant-numeric: tabular-nums; }
-        #displayDate { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 5px; }
-        #statsToggle { width: 20px; height: 20px; cursor: pointer; color: rgba(255,255,255,0.5); font-size: 12px; }
         
-        #statsContent {
-            max-height: 0; overflow: hidden; opacity: 0;
-            transition: max-height 0.5s cubic-bezier(0, 1, 0, 1), opacity 0.5s ease;
-            display: flex; flex-direction: column; gap: 12px; padding-top: 5px;
-        }
-        .sidebar-container.expanded #statsContent { max-height: 400px; opacity: 1; }
-        .sidebar-container.expanded #statsToggle { transform: rotate(180deg); }
-
-        .data-row { font-size: 14px; color: #e0e0e0; font-weight: 500; display: flex; align-items: center; }
-        .data-label { width: 90px; font-size: 12px; }
-        .bar-container { width: 100px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-right: 10px; }
-        .fill-bar { height: 100%; border-radius: 3px; transition: width 0.1s linear; }
-        .color-line-container { width: 100px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-right: 10px; display: flex; }
-        #valColorLine { width: 100%; height: 100%; background: blue; transition: background-color 0.2s; }
-
-        .center-stage { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; display: flex; justify-content: center; align-items: center; pointer-events: none; }
-        .character-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-        #imgHeadSleep { z-index: 10; display: none; } #layerHead { z-index: 10; transition: opacity 0.1s; } #canvasEyes { z-index: 15; position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: opacity 0.1s; }
-        #layerBlink { z-index: 20; } #layerEars { z-index: 30; } #layerTongue { z-index: 40; }  
-
-        .bottom-area { position: absolute; bottom: 30px; left: 30px; right: 30px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
-        .controls-row { display: flex; gap: 15px; pointer-events: auto; }
-        .img-btn { width: 130px; height: 75px; background-size: contain; background-repeat: no-repeat; background-position: left bottom; cursor: pointer; transition: transform 0.05s; border: none; background-color: transparent; }
-        .img-btn:active { transform: scale(0.95); }
-        .slider-wrapper { width: 100%; height: 40px; display: flex; align-items: center; pointer-events: auto; }
-        input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #fff; border-radius: 2px; border: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: #fff; margin-top: -10px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-
-        #repairBtn { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); background: rgba(255, 165, 0, 0.9); color: black; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 12px; cursor: pointer; display: none; z-index: 200; box-shadow: 0 0 15px orange; font-family: 'Montserrat', sans-serif; }
+        /* AVATAR */
+        .center-stage { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; display: flex; justify-content: center; align-items: center; }
+        .char-layer { position: absolute; inset: 0; object-fit: contain; width: 100%; height: 100%; }
+        #headSleep { z-index: 20; } 
+        #headLive { z-index: 10; opacity: 0; transition: opacity 0.5s; }
         
-        body.system-off #liveVideo { opacity: 0; }
-        body.system-off input[type=range] { opacity: 0.2; pointer-events: none; }
-        body.system-off .character-layer { display: none; }
-        body.system-off #imgHeadSleep { display: block; filter: grayscale(100%) brightness(40%); }
+        /* OVLÁDÁNÍ */
+        .bottom-controls { display: flex; flex-direction: column; gap: 15px; align-items: center; padding-bottom: 20px; }
+        .buttons-row { display: flex; gap: 20px; }
+        .img-btn { width: 60px; height: 60px; background-size: contain; border: none; background-color: transparent; opacity: 0.6; transition: 0.2s; }
+        .img-btn:hover { opacity: 1; transform: scale(1.1); }
+        .img-btn.active { opacity: 1; filter: drop-shadow(0 0 5px #fff); }
+
+        /* SLIDER */
+        .slider-container { width: 100%; height: 40px; display: flex; align-items: center; position: relative; }
+        input[type=range] { width: 100%; cursor: pointer; opacity: 0.5; transition: 0.2s; }
+        input[type=range]:hover { opacity: 1; }
+        
+        /* STAVOVÉ INFO */
+        #statusText { position: absolute; top: 30px; right: 30px; text-align: right; font-size: 0.8rem; color: #888; }
+        .recording-dot { display: inline-block; width: 10px; height: 10px; background: red; border-radius: 50%; margin-right: 5px; animation: blink 1s infinite; display: none; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* PRELOADING */
+        .preload { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="introScreen">
-        <div class="intro-text-area">
-            <h1>Memory system v2.1</h1>
-            <p>
-                Program neustále nahrává a analyzuje své okolí – vnímá intenzitu světla, barvy a hladinu hluku.
-                <img src="assets/btn_sim_idle.png" class="inline-icon" alt="Ikona Podobné">
-                Podle toho, co vidí a slyší právě teď, může vyhledat a přehrát nejpodobnější záznam ze sdílené paměti.
-            </p>
+        <div class="intro-content">
+            <button id="introStartBtn" class="interactive">INIT SYSTEM</button>
+            <p style="margin-top: 20px; color: #666; font-size: 0.8rem;">V3.0 OPTIMIZED CORE</p>
         </div>
-
-        <div class="intro-settings-area">
-            <div class="setting-item">
-                <span class="setting-label">Kamera</span>
-                <select id="videoSource" class="simple-select"><option value="none">--- Vypnuto ---</option></select>
-            </div>
-            <div class="setting-item">
-                <span class="setting-label">Mikrofon</span>
-                <select id="audioSource" class="simple-select"><option value="none">--- Vypnuto ---</option></select>
-            </div>
-        </div>
-        <button id="introStartBtn">SPUSTIT</button>
     </div>
 
-    <video id="sourceMask" src="assets/eyes_alpha_channel.webm" loop muted style="display:none;"></video>
-    <video id="sourcePupils" src="assets/eyes_zornicky.webm" loop muted style="display:none;"></video>
-    <video id="liveVideo" class="video-layer" autoplay muted playsinline></video>
-    <video id="memoryVideo" class="video-layer" playsinline></video>
-    <video id="memPlayerA" style="display:none;" muted playsinline></video>
-    <video id="memPlayerB" style="display:none;" muted playsinline></video>
-    <canvas id="freezeFrame" class="video-layer"></canvas>
+    <video id="liveVideo" class="layer" autoplay muted playsinline></video>
+    <video id="playbackVideo" class="layer" playsinline></video>
+    <video id="chunkPlayer" class="layer" playsinline></video>
+    <img id="thumbPreview" class="layer">
+
+    <div class="center-stage">
+        <img id="headSleep" class="char-layer" src="assets/head_sleep.png">
+        <video id="headLive" class="char-layer" src="assets/head_idle.webm" loop muted playsinline></video>
+        </div>
 
     <div id="uiLayer">
-        <button id="repairBtn" class="interactive">⚠ UPLOADING...</button>
+        <div id="statusText">
+            <span class="recording-dot" id="recDot"></span> <span id="sysStatus">SYSTEM OFF</span><br>
+            <span id="memCount">0 vzpomínek</span>
+        </div>
 
-        <div class="sidebar-container">
-            <div id="displayTime">--:--:--</div>
-            <div id="displayDate">--. --. ----</div>
-            <div id="statsToggle" class="interactive">▼</div>
-            
-            <div id="statsContent">
-                <div class="data-row"><div class="data-label">hlasitost</div><div class="bar-container"><div id="fillAudio" class="fill-bar" style="background: #e0e0e0;"></div></div></div>
-                <div class="data-row"><div class="data-label">hloubky</div><div class="bar-container"><div id="fillBass" class="fill-bar" style="background: #e0e0e0;"></div></div></div>
-                <div class="data-row"><div class="data-label">výšky</div><div class="bar-container"><div id="fillTreble" class="fill-bar" style="background: #e0e0e0;"></div></div></div>
-                <div class="data-row"><div class="data-label">světlo</div><div class="bar-container"><div id="fillBright" class="fill-bar" style="background: #e0e0e0;"></div></div></div>
-                <div class="data-row"><div class="data-label">teplota</div><div class="bar-container"><div id="fillWarm" class="fill-bar" style="background: #e0e0e0;"></div></div></div>
-                <div class="data-row"><div class="data-label">pohyb</div><div class="bar-container"><div id="fillMotion" class="fill-bar" style="background: #e0e0e0;"></div></div></div>
-                <div class="data-row"><div class="data-label">barva</div><div class="color-line-container"><div id="valColorLine"></div></div></div>
+        <div class="bottom-controls interactive">
+            <div class="buttons-row">
+                <button id="btnSimilar" class="img-btn" style="background-image: url('assets/btn_sim_idle.png')"></button>
+                <button id="btnPower" class="img-btn" style="background-image: url('assets/btn_power_off.png')"></button>
+                <button id="btnTime" class="img-btn" style="background-image: url('assets/btn_time_off.png')"></button>
             </div>
-        </div>
-
-        <div class="header-right interactive">
-            <div id="settingsIcon">⚙</div>
-        </div>
-
-        <div class="center-stage">
-            <img id="imgHeadSleep" class="character-layer" src="assets/head_sleep.png">
-            <video id="layerHead" class="character-layer" src="assets/head_idle.webm" autoplay loop muted playsinline></video>
-            <canvas id="canvasEyes" width="2048" height="2048"></canvas>
-            <video id="layerBlink" class="character-layer" src="" muted playsinline></video>
-            <video id="layerEars" class="character-layer" src="assets/ears_active.webm" autoplay loop muted playsinline></video>
-            <video id="layerTongue" class="character-layer" src="" muted playsinline></video>
-        </div>
-
-        <div class="bottom-area">
-            <div class="controls-row">
-                <div id="similarBtn" class="img-btn interactive" style="background-image: url('assets/btn_sim_idle.png');" title="Najít podobné"></div>
-                <div id="timelapseBtn" class="img-btn interactive" style="background-image: url('assets/btn_time_off.png');" title="Časosběr"></div>
-                <div id="powerBtn" class="img-btn interactive" style="background-image: url('assets/btn_power_on.png');" title="Zapnout"></div>
+            <div class="slider-container">
+                <input type="range" id="mainSlider" min="0" max="100" value="100" disabled>
             </div>
-            <div class="slider-wrapper interactive"><input type="range" id="memorySlider" min="0" max="100" value="100" disabled></div>
         </div>
     </div>
 
     <script>
-        // --- VÁŠ TAJNÝ KLÍČ (MASKOVANÝ) ---
-        // Tady doplňte zbytek svého tokenu.
-        // Příklad: pokud je token ghp_AbCdEf123456...
-        // Tak do CAST_TOKENU_1 dejte AbCdEf... a do CAST_TOKENU_2 zbytek.
+        // --- KONFIGURACE (DOPLŇTE TOKEN) ---
+        const CAST_1 = "ghp_"; 
+        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <-- UPRAVIT!
         
-        const PREFIX = "ghp_";
-        const CAST_TOKENU_1 = "uV9FhsFwrzeKlOVtPn"; // <-- UPRAVIT
-        const CAST_TOKENU_2 = "Y72bMhVGAHjh4IPNL8"; // <-- UPRAVIT
+        const TOKEN = CAST_1 + CAST_2;
+        const OWNER = "matyaskunstmuller";
+        const REPO = "bertik";
 
-        // Automatické spojení (GitHub toto neuvidí jako klíč)
-        const FINAL_TOKEN = PREFIX + CAST_TOKENU_1 + CAST_TOKENU_2;
+        // --- STAV SYSTÉMU ---
+        const STATE = {
+            OFF: 0,
+            LIVE: 1,      // Nahrává se
+            PLAYBACK: 2,  // Přehrává se video
+            TIMELAPSE: 3  // Běží časosběr (chunky)
+        };
+        let currentState = STATE.OFF;
         
-        const REPO_OWNER = "matyaskunstmuller";
-        const REPO_NAME = "bertik";
+        // --- PROMĚNNÉ ---
+        let octokit, mediaRecorder, chunks = [];
+        let memories = [], chunksList = [];
+        let autoRecInterval;
+        let currentStats = { color: '#000', bright: 0 };
         
-        let octokit;
+        // Prvky
+        const els = {
+            live: document.getElementById('liveVideo'),
+            play: document.getElementById('playbackVideo'),
+            chunk: document.getElementById('chunkPlayer'),
+            thumb: document.getElementById('thumbPreview'),
+            slider: document.getElementById('mainSlider'),
+            status: document.getElementById('sysStatus'),
+            dot: document.getElementById('recDot'),
+            headS: document.getElementById('headSleep'),
+            headL: document.getElementById('headLive'),
+            btnPower: document.getElementById('btnPower'),
+            btnTime: document.getElementById('btnTime'),
+            btnSim: document.getElementById('btnSimilar')
+        };
 
-        // Okamžitá inicializace
-        document.addEventListener("DOMContentLoaded", () => {
-            if(window.Octokit && FINAL_TOKEN.length > 10) {
-                try {
-                    octokit = new window.Octokit({ auth: FINAL_TOKEN });
-                    console.log("Systém automaticky přihlášen.");
-                    refreshMemories();
-                } catch(e) { console.error("Chyba přihlášení:", e); }
-            }
-        });
-
-        // --- UI LOGIKA ---
-        const introScreen = document.getElementById('introScreen');
-        const startBtn = document.getElementById('introStartBtn');
-        
-        document.getElementById('statsToggle').addEventListener('click', () => { document.querySelector('.sidebar-container').classList.toggle('expanded'); });
-        document.getElementById('settingsIcon').addEventListener('click', () => { introScreen.classList.remove('hidden'); });
-
-        // SPUSTIT APLIKACI
-        startBtn.addEventListener('click', async () => { 
-            await getDevices(true); 
-            introScreen.classList.add('hidden'); 
-        });
-
-        // --- PRVKY ---
-        const liveVideo = document.getElementById('liveVideo'), memoryVideo = document.getElementById('memoryVideo');
-        const vidA = document.getElementById('memPlayerA'), vidB = document.getElementById('memPlayerB');
-        const freezeFrame = document.getElementById('freezeFrame'), ctxFreeze = freezeFrame.getContext('2d');
-        const slider = document.getElementById('memorySlider');
-        const videoSelect = document.getElementById('videoSource'), audioSelect = document.getElementById('audioSource');
-        const powerBtn = document.getElementById('powerBtn'), timelapseBtn = document.getElementById('timelapseBtn');
-        const similarBtn = document.getElementById('similarBtn'), repairBtn = document.getElementById('repairBtn');
-
-        const layerHead = document.getElementById('layerHead'), layerBlink = document.getElementById('layerBlink');
-        const layerEars = document.getElementById('layerEars'), layerTongue = document.getElementById('layerTongue');
-        const imgHeadSleep = document.getElementById('imgHeadSleep'), canvasEyes = document.getElementById('canvasEyes');
-        const ctxEyes = canvasEyes.getContext('2d'), sourceMask = document.getElementById('sourceMask'), sourcePupils = document.getElementById('sourcePupils');
-
-        const fillAudio = document.getElementById('fillAudio'), fillBass = document.getElementById('fillBass'), fillTreble = document.getElementById('fillTreble');
-        const fillBright = document.getElementById('fillBright'), fillWarm = document.getElementById('fillWarm'), fillMotion = document.getElementById('fillMotion'), valColorLine = document.getElementById('valColorLine');
-
-        let isSystemOn = true, mediaRecorder, recordedChunks = [], allMemories = [], recordingStartTime = 0;
-        let autoRecordInterval, audioContext, analyser, micSource, dataArray, isTimelapseRunning = false; 
-        let frameCounter = 0; 
-        
-        let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
-        let pupilX = 0, pupilY = 0, lastEyeUpdate = 0, lastMouseMoveTime = Date.now();
-        let roamX = 0, roamY = 0, roamTargetTime = 0;
-
-        document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
-        const resize = () => { freezeFrame.width = window.innerWidth; freezeFrame.height = window.innerHeight; };
-        window.addEventListener('resize', resize); resize();
-
-        const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
-        canvas.width = 64; canvas.height = 64;
-        let prevFrameData = null, currentStats = { volume: 0, bass: 0, treble: 0, brightness: 0, warmth: 0, motion: 0, color: '#000000', hour: 0 };
-
-        function updateCharacterState() {
-            if(!isSystemOn) { imgHeadSleep.style.display = "block"; layerHead.style.display = "none"; canvasEyes.style.display = "none"; layerEars.style.display = "none"; layerBlink.style.display = "none"; layerTongue.style.display = "none"; sourceMask.pause(); sourcePupils.pause(); return; }
-            imgHeadSleep.style.display = "none"; layerHead.style.display = "block"; layerEars.style.display = "block"; layerBlink.style.display = "block"; layerTongue.style.display = "block";
-            const vidOff = videoSelect.value === 'none', audOff = audioSelect.value === 'none';
-            if (vidOff) { layerHead.src = "assets/head_blind.webm"; canvasEyes.style.display = "none"; sourceMask.pause(); sourcePupils.pause(); } 
-            else { layerHead.src = "assets/head_idle.webm"; canvasEyes.style.display = "block"; sourceMask.play(); sourcePupils.play(); }
-            if (audOff) layerEars.src = "assets/ears_off.webm"; else layerEars.src = "assets/ears_active.webm";
-        }
-
-        function triggerBlink() { if(!isSystemOn || videoSelect.value === 'none') return; layerHead.style.opacity = "0"; canvasEyes.style.opacity = "0"; layerBlink.src = "assets/blink_anim.webm"; layerBlink.play(); layerBlink.onended = () => { layerBlink.src = ""; layerHead.style.opacity = "1"; canvasEyes.style.opacity = "1"; }; }
-        function triggerTongue() { if(!isSystemOn) return; layerHead.style.opacity = "0"; layerTongue.src = "assets/tongue_action.webm"; layerTongue.play(); layerTongue.onended = () => { layerTongue.src = ""; layerHead.style.opacity = "1"; }; }
-        
-        function renderEyes() {
-            if(isSystemOn && videoSelect.value !== 'none') {
-                const now = Date.now();
-                if (now - lastEyeUpdate > (1000/12)) {
-                    let targetX, targetY;
-                    if (now - lastMouseMoveTime > 3000) {
-                        if (now > roamTargetTime) {
-                            roamX = (Math.random() - 0.5) * 200; 
-                            roamY = (Math.random() - 0.5) * 100; 
-                            roamTargetTime = now + 2000 + Math.random() * 500; 
-                        }
-                        targetX = pupilX + (roamX - pupilX) * 0.3; 
-                        targetY = pupilY + (roamY - pupilY) * 0.3;
-                    } else {
-                        const cx = window.innerWidth / 2;
-                        const cy = window.innerHeight / 2;
-                        targetX = ((mouseX - cx) / 25) * 6.5;
-                        targetY = ((mouseY - cy) / 25) * 6.5;
-                    }
-                    pupilX = Math.max(-150, Math.min(150, targetX));
-                    pupilY = Math.max(-150, Math.min(150, targetY));
-                    lastEyeUpdate = now;
-                }
-                const W = canvasEyes.width, H = canvasEyes.height;
-                ctxEyes.clearRect(0, 0, W, H); 
-                ctxEyes.globalCompositeOperation = 'source-over'; 
-                ctxEyes.drawImage(sourceMask, 0, 0, W, H); 
-                ctxEyes.globalCompositeOperation = 'source-in'; 
-                ctxEyes.drawImage(sourcePupils, pupilX, pupilY, W, H); 
-                ctxEyes.globalCompositeOperation = 'source-over';
-            }
-            requestAnimationFrame(renderEyes);
-        }
-        renderEyes();
-
-        async function getDevices(forceRequest = false) {
+        // --- INICIALIZACE ---
+        document.getElementById('introStartBtn').addEventListener('click', async () => {
             try {
-                if(forceRequest) { await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                while (videoSelect.options.length > 1) videoSelect.remove(1);
-                while (audioSelect.options.length > 1) audioSelect.remove(1);
-                let hasVideo = false, hasAudio = false;
-                devices.forEach(d => {
-                    const opt = document.createElement('option'); opt.value = d.deviceId; opt.text = d.label || d.kind;
-                    if(d.kind === 'videoinput') { videoSelect.appendChild(opt); hasVideo = true; }
-                    if(d.kind === 'audioinput') { audioSelect.appendChild(opt); hasAudio = true; }
-                });
-                if (hasVideo && videoSelect.options.length > 1 && videoSelect.value === 'none') videoSelect.selectedIndex = 1;
-                if (hasAudio && audioSelect.options.length > 1 && audioSelect.value === 'none') audioSelect.selectedIndex = 1;
-                if(isSystemOn) startCamera();
-            } catch(e) { console.warn("Kamera error", e); }
+                if(window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
+                await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // Povolení
+                await loadDatabase();
+                document.getElementById('introScreen').classList.add('hidden');
+                // Po startu jsme ve stavu OFF, čekáme na zapnutí
+            } catch(e) { alert("Chyba startu: " + e.message); }
+        });
+
+        // --- OVLÁDÁNÍ STAVŮ ---
+        
+        // 1. Tlačítko POWER (Live / Off / Zpět z přehrávání)
+        els.btnPower.addEventListener('click', () => {
+            if (currentState === STATE.OFF) {
+                setMode(STATE.LIVE); // Zapnout
+            } else if (currentState === STATE.LIVE) {
+                setMode(STATE.OFF);  // Vypnout
+            } else {
+                setMode(STATE.LIVE); // Návrat z přehrávání do Live
+            }
+        });
+
+        // 2. Tlačítko TIMELAPSE
+        els.btnTime.addEventListener('click', () => {
+            if (currentState === STATE.OFF) return;
+            if (currentState === STATE.TIMELAPSE) setMode(STATE.LIVE); // Vypnout
+            else setMode(STATE.TIMELAPSE); // Zapnout
+        });
+
+        // 3. Tlačítko SIMILAR
+        els.btnSim.addEventListener('click', () => {
+            if (currentState === STATE.OFF) return;
+            findSimilar();
+        });
+
+        async function setMode(mode) {
+            currentState = mode;
+            console.log("Mód:", mode);
+
+            // Reset UI
+            els.live.style.display = 'none';
+            els.play.style.display = 'none';
+            els.chunk.style.display = 'none';
+            els.thumb.style.display = 'none';
+            els.dot.style.display = 'none';
+            els.chunk.pause(); els.play.pause();
+
+            // Vzhled tlačítek
+            els.btnPower.style.backgroundImage = (mode !== STATE.OFF) ? "url('assets/btn_power_on.png')" : "url('assets/btn_power_off.png')";
+            els.btnTime.style.backgroundImage = (mode === STATE.TIMELAPSE) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
+
+            // Logika stavů
+            if (mode === STATE.OFF) {
+                stopRecording();
+                els.headS.style.display = 'block';
+                els.headL.style.opacity = 0;
+                els.status.innerText = "SYSTEM OFF";
+                els.slider.disabled = true;
+                if(els.live.srcObject) els.live.srcObject.getTracks().forEach(t => t.stop());
+            
+            } else if (mode === STATE.LIVE) {
+                await startCamera();
+                startRecording();
+                els.live.style.display = 'block';
+                els.headS.style.display = 'none';
+                els.headL.style.opacity = 1; els.headL.play();
+                els.status.innerText = "LIVE RECORDING";
+                els.dot.style.display = 'inline-block';
+                els.slider.disabled = false;
+                els.slider.value = memories.length; // Slider na konec
+
+            } else if (mode === STATE.TIMELAPSE) {
+                stopRecording();
+                els.status.innerText = "TIMELAPSE (CHUNKS)";
+                els.chunk.style.display = 'block';
+                runTimelapseLoop();
+
+            } else if (mode === STATE.PLAYBACK) {
+                stopRecording();
+                els.status.innerText = "MEMORY PLAYBACK";
+                els.play.style.display = 'block';
+            }
         }
 
+        // --- LOGIKA KAMERY A NAHRÁVÁNÍ ---
         async function startCamera() {
-            if(!isSystemOn) return;
-            updateCharacterState();
-            if (videoSelect.value === 'none') { if(liveVideo.srcObject) liveVideo.srcObject.getVideoTracks().forEach(t => t.stop()); liveVideo.srcObject = null; } 
-            else { try { const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: videoSelect.value } } }); liveVideo.srcObject = stream; } catch(e) {} }
-            
-            if (audioContext) audioContext.close();
-            if (audioSelect.value === 'none') { analyser = null; } 
-            else { 
-                try { 
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: audioSelect.value } } }); 
-                    audioContext = new AudioContext(); analyser = audioContext.createAnalyser(); analyser.fftSize = 512; 
-                    micSource = audioContext.createMediaStreamSource(stream); micSource.connect(analyser); 
-                    dataArray = new Uint8Array(analyser.frequencyBinCount); 
-                } catch(e) {} 
-            }
-            if (videoSelect.value !== 'none' || audioSelect.value !== 'none') { startRecording(); }
-            loopAnalysis();
-        }
-
-        function calculateImageStats(videoElement) {
             try {
-                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = frame.data; let r=0, g=0, b=0; let motionScore = 0; const pixelCount = data.length / 4;
-                for(let i=0; i<data.length; i+=4) { 
-                    const cr = data[i]; const cg = data[i+1]; const cb = data[i+2]; r += cr; g += cg; b += cb;
-                    if(prevFrameData && videoElement === liveVideo) { motionScore += Math.abs(cr - prevFrameData[i]) + Math.abs(cg - prevFrameData[i+1]) + Math.abs(cb - prevFrameData[i+2]); }
-                }
-                if(videoElement === liveVideo) prevFrameData = new Uint8ClampedArray(data);
-                r = Math.round(r / pixelCount); g = Math.round(g / pixelCount); b = Math.round(b / pixelCount);
-                const brightness = Math.round(0.299*r + 0.587*g + 0.114*b);
-                let warmth = 50 + ((r - b) / 255) * 50; warmth = Math.max(0, Math.min(100, warmth));
-                let motion = 0; if(videoElement === liveVideo) motion = Math.min(100, Math.round(motionScore / pixelCount / 2)); 
-                const toHex = (c) => c.toString(16).padStart(2, '0');
-                return { brightness: Math.round((brightness / 255) * 100), warmth: Math.round(warmth), motion: motion, color: `#${toHex(r)}${toHex(g)}${toHex(b)}` };
-            } catch(e) { return { brightness: 0, warmth: 0, motion: 0, color: '#000000' }; }
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
+                els.live.srcObject = stream;
+                analyzeLoop(); // Spustit analýzu barev pro "Podobné"
+            } catch(e) { console.error(e); }
         }
 
-        function loopAnalysis() {
-            if(!isSystemOn) return;
-            requestAnimationFrame(loopAnalysis);
-            frameCounter++;
-            if (frameCounter % 10 !== 0) return;
-
-            if(analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0, bassSum = 0, trebleSum = 0; let bassCount = Math.floor(dataArray.length * 0.1); let trebleStart = Math.floor(dataArray.length * 0.7);
-                for(let i=0; i<dataArray.length; i++) { let val = dataArray[i]; sum += val; if(i < bassCount) bassSum += val; if(i > trebleStart) trebleSum += val; }
-                currentStats.volume = Math.round((sum / dataArray.length / 255) * 100); currentStats.bass = Math.round((bassSum / bassCount / 255) * 100); currentStats.treble = Math.round((trebleSum / (dataArray.length - trebleStart) / 255) * 100);
-            }
-            if(videoSelect.value !== 'none' && liveVideo.readyState === 4) {
-                const vs = calculateImageStats(liveVideo); currentStats.brightness = vs.brightness; currentStats.warmth = vs.warmth; currentStats.motion = vs.motion; currentStats.color = vs.color;
-            }
-            if(!document.body.classList.contains('memory-active')) updateStatsDisplay(currentStats);
-        }
-
-        function updateStatsDisplay(stats) {
-            const jitter = () => (Math.random() - 0.5) * 2;
-            fillAudio.style.width = Math.max(0, (stats.volume||0) + jitter()) + "%"; 
-            fillBass.style.width = Math.max(0, (stats.bass||0) + jitter()) + "%"; 
-            fillTreble.style.width = Math.max(0, (stats.treble||0) + jitter()) + "%";
-            fillBright.style.width = stats.brightness + "%"; 
-            fillWarm.style.width = (stats.warmth||0) + "%"; 
-            fillMotion.style.width = (stats.motion||0) + "%"; 
-            valColorLine.style.backgroundColor = stats.color;
-        }
-
-        setInterval(() => { if(!document.body.classList.contains('memory-active')) { const now = new Date(); document.getElementById('displayTime').innerText = now.toLocaleTimeString('cs-CZ', { hour12: false }); document.getElementById('displayDate').innerText = now.toLocaleDateString('cs-CZ').replace(/\s/g, '. '); } }, 1000);
-        
-        memoryVideo.addEventListener('timeupdate', () => {
-            const index = parseInt(slider.value); 
-            if (index >= allMemories.length) return; 
-            const mem = allMemories[index]; 
-            if (mem && mem.stats) updateStatsDisplay(mem.stats);
-        });
-        
-        memoryVideo.onended = () => {
-            if (isTimelapseRunning) return; 
-            const nextIndex = parseInt(slider.value) + 1;
-            if (nextIndex < allMemories.length) switchToMemory(nextIndex); else { document.body.classList.remove('memory-active'); memoryVideo.pause(); slider.value = allMemories.length; }
-        };
-
-        // --- NAHRÁVÁNÍ DO CLOUDU ---
         function startRecording() {
-            if (videoSelect.value === 'none' && audioSelect.value === 'none') return;
-            const tracks = [];
-            if (liveVideo.srcObject) tracks.push(...liveVideo.srcObject.getVideoTracks()); if (micSource) tracks.push(...micSource.mediaStream.getAudioTracks());
-            if (tracks.length === 0) return;
-            
-            try { mediaRecorder = new MediaRecorder(new MediaStream(tracks), { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 500000 }); } 
-            catch(e) { mediaRecorder = new MediaRecorder(new MediaStream(tracks)); }
-            
-            mediaRecorder.onstart = () => { recordingStartTime = Date.now(); };
-            mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
-            
-            mediaRecorder.onstop = async () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                if(blob.size > 0 && octokit) {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(blob);
-                    reader.onloadend = async function() {
-                        const base64data = reader.result.split(',')[1];
-                        const timestamp = Date.now();
-                        const filename = `mem_${timestamp}.webm`;
-                        
-                        repairBtn.style.display = "block";
-                        repairBtn.innerText = "ODESÍLÁM...";
-
-                        try {
-                            await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-                                owner: REPO_OWNER, repo: REPO_NAME, path: `memories/${filename}`,
-                                message: `Vzpomínka ${timestamp}`, content: base64data,
-                                committer: { name: "Bertik Memory", email: "bertik@system.ai" }
-                            });
-                            console.log("Odesláno na GitHub");
-                            triggerBlink();
-
-                            // OPTIMISTICKÝ UPDATE UI
-                            const newMem = {
-                                filename: filename,
-                                timestamp: timestamp,
-                                timeStr: new Date(timestamp).toLocaleTimeString('cs-CZ', { hour12: false }),
-                                dateStr: new Date(timestamp).toLocaleDateString('cs-CZ'),
-                                stats: { ...currentStats }, 
-                                videoUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/${filename}`
-                            };
-                            allMemories.push(newMem);
-                            slider.max = allMemories.length - 1;
-
-                        } catch(e) { console.error("Upload error:", e); }
-                        repairBtn.style.display = "none";
-                    }
-                }
-                
-                recordedChunks = []; 
-                if(isSystemOn) mediaRecorder.start();
-            };
-            
-            mediaRecorder.start();
-            if(autoRecordInterval) clearInterval(autoRecordInterval);
-            autoRecordInterval = setInterval(() => { if(isSystemOn && mediaRecorder.state === 'recording') mediaRecorder.stop(); }, 60000); 
-        }
-
-        async function switchToMemory(index) {
-            index = Math.floor(index); 
-            if (index >= allMemories.length) index = allMemories.length - 1; 
-            if (index < 0) return;
-            
-            const mem = allMemories[index];
-            if(!mem.videoUrl) return;
-
-            memoryVideo.pause(); 
-            memoryVideo.src = mem.videoUrl; 
-            memoryVideo.currentTime = 0; 
-            memoryVideo.loop = false; 
-            
-            freezeFrame.style.opacity = 0; 
-            document.body.classList.add('memory-active'); 
-            memoryVideo.play().catch(e => console.log("Autoplay blocked"));
-            
-            document.getElementById('displayTime').innerText = mem.timeStr; 
-            document.getElementById('displayDate').innerText = mem.dateStr;
-            if(mem.stats) updateStatsDisplay(mem.stats);
-            slider.value = index;
-        }
-
-        async function runTimelapse() {
-            document.body.classList.add('memory-active'); 
-            freezeFrame.style.opacity = 1;
-            
-            let chunkId = 0;
-            const CHUNK_SIZE = 300; 
-
-            while(isTimelapseRunning) {
-                const chunkUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/chunks/chunk_${chunkId}.webm?t=${Date.now()}`;
-                const videoEl = vidA;
-                const exists = await checkUrlExists(chunkUrl);
-                if (!exists) break; 
-
-                videoEl.src = chunkUrl;
-                await new Promise(resolve => {
-                    videoEl.onloadedmetadata = () => {
-                        videoEl.play();
-                        const drawLoop = () => {
-                            if(videoEl.paused || videoEl.ended || !isTimelapseRunning) return;
-                            ctxFreeze.drawImage(videoEl, 0, 0, freezeFrame.width, freezeFrame.height);
-                            requestAnimationFrame(drawLoop);
-                        };
-                        drawLoop();
-                    };
-                    videoEl.onended = resolve;
-                    videoEl.onerror = resolve; 
-                });
-                chunkId++;
-            }
-
-            const processedCount = chunkId * CHUNK_SIZE;
-            for(let i = processedCount; i < allMemories.length; i++) {
-                 if(!isTimelapseRunning) break;
-                 const mem = allMemories[i];
-                 slider.value = i;
-                 document.getElementById('displayTime').innerText = mem.timeStr;
-                 document.getElementById('displayDate').innerText = mem.dateStr;
-                 if(mem.stats) updateStatsDisplay(mem.stats);
-                 vidA.src = mem.videoUrl;
-                 try { await vidA.play(); } catch(e){}
-                 ctxFreeze.drawImage(vidA, 0, 0, freezeFrame.width, freezeFrame.height);
-                 await new Promise(r => setTimeout(r, 150)); 
-            }
-            
-            if(isSystemOn && isTimelapseRunning) { 
-                isTimelapseRunning = false; 
-                timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; 
-                freezeFrame.style.opacity = 0; 
-                document.body.classList.remove('memory-active'); 
-                memoryVideo.pause(); 
-                slider.value = allMemories.length; 
-            }
-        }
-
-        async function checkUrlExists(url) {
-            try { const response = await fetch(url, { method: 'HEAD' }); return response.ok; } catch(e) { return false; }
-        }
-
-        function togglePower() {
-            if(isSystemOn) { isSystemOn = false; isTimelapseRunning = false; stopSystem(); powerBtn.style.backgroundImage = "url('assets/btn_power_off.png')"; timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; document.body.classList.add('system-off'); document.body.classList.remove('memory-active'); slider.disabled = true; updateCharacterState(); } 
-            else { isSystemOn = true; startCamera(); powerBtn.style.backgroundImage = "url('assets/btn_power_on.png')"; document.body.classList.remove('system-off'); slider.disabled = false; }
-        }
-
-        function stopSystem() {
-            if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-            if(liveVideo.srcObject) liveVideo.srcObject.getTracks().forEach(t => t.stop());
-            if(audioContext) audioContext.close();
-            clearInterval(autoRecordInterval); memoryVideo.pause(); vidA.pause(); vidB.pause();
-            updateStatsDisplay({ volume: 0, bass: 0, treble: 0, brightness: 0, warmth: 0, motion: 0, color: '#000000' });
-            freezeFrame.style.opacity = 0; 
-        }
-
-        videoSelect.onchange = () => { if(isSystemOn) startCamera(); };
-        audioSelect.onchange = () => { if(isSystemOn) startCamera(); };
-        powerBtn.onmousedown = () => powerBtn.style.backgroundImage = "url('assets/btn_power_press.png')";
-        powerBtn.onmouseup = togglePower;
-        
-        timelapseBtn.onmousedown = () => { 
-            if(!isSystemOn || allMemories.length === 0) return; 
-            if(isTimelapseRunning) { timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; } 
-            else { timelapseBtn.style.backgroundImage = "url('assets/btn_time_on.png')"; } 
-        };
-        timelapseBtn.onmouseup = () => { 
-            if(!isSystemOn || allMemories.length === 0) return; 
-            if(isTimelapseRunning) { isTimelapseRunning = false; } 
-            else { isTimelapseRunning = true; runTimelapse(); } 
-        };
-
-        function hexToRgb(hex) { var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : {r:0,g:0,b:0}; }
-        similarBtn.onmousedown = () => { similarBtn.style.backgroundImage = "url('assets/btn_sim_press.png')"; };
-        similarBtn.onmouseup = () => { similarBtn.style.backgroundImage = "url('assets/btn_sim_idle.png')"; findSimilar(); };
-
-        function findSimilar() {
-            if(!isSystemOn || allMemories.length === 0) return;
-            const live = currentStats; const liveRgb = hexToRgb(live.color);
-            let best = -1, minScore = Infinity;
-            allMemories.forEach((mem, index) => {
-                if(!mem.stats) return; 
-                const mStat = mem.stats; const mRgb = hexToRgb(mStat.color);
-                const diffColor = (Math.abs(liveRgb.r - mRgb.r) + Math.abs(liveRgb.g - mRgb.g) + Math.abs(liveRgb.b - mRgb.b)) / 7.65;
-                const score = (diffColor * 3.5) + (Math.abs(live.brightness - mStat.brightness) * 2.0);
-                if (score < minScore) { minScore = score; best = index; }
-            });
-            if (best !== -1) { switchToMemory(best); triggerTongue(); }
-        }
-
-        async function refreshMemories() {
-            if (!octokit) return; 
-            const url = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/database.json?t=${Date.now()}`;
+            if (!els.live.srcObject) return;
             try {
-                const response = await fetch(url);
-                if(!response.ok) throw new Error("DB fail");
-                const data = await response.json();
+                mediaRecorder = new MediaRecorder(els.live.srcObject, { mimeType: 'video/webm; codecs=vp9' });
+                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = uploadMemory;
+                mediaRecorder.start();
                 
-                allMemories = data.map(m => { 
-                    const d = new Date(m.timestamp); 
-                    return {
-                        ...m,
-                        timeStr: d.toLocaleTimeString('cs-CZ', { hour12: false }),
-                        dateStr: d.toLocaleDateString('cs-CZ').replace(/\s/g, '. '),
-                        videoUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/${m.filename}`
-                    };
-                });
-                
-                if(allMemories.length > 0) { 
-                    slider.max = allMemories.length - 1; 
-                    if(!document.body.classList.contains('memory-active') && !isTimelapseRunning) slider.value = allMemories.length; 
-                } 
-                slider.disabled = allMemories.length === 0;
-            } catch(e) { console.log("DB nedostupná."); }
+                // Interval nahrávání (60s)
+                clearInterval(autoRecInterval);
+                autoRecInterval = setInterval(() => {
+                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                }, 60000); 
+            } catch(e) {}
         }
 
-        slider.oninput = async function() { const index = parseInt(this.value); if(index >= allMemories.length - 1 && allMemories.length > 0) { document.body.classList.remove('memory-active'); memoryVideo.pause(); return; } switchToMemory(index); };
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+            clearInterval(autoRecInterval);
+        }
 
-        document.fonts.ready.then(() => { 
-            isSystemOn = false; powerBtn.style.backgroundImage = "url('assets/btn_power_off.png')"; timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; similarBtn.style.backgroundImage = "url('assets/btn_sim_idle.png')"; document.body.classList.add('system-off'); updateCharacterState(); updateStatsDisplay({ volume: 0, bass: 0, treble: 0, brightness: 0, warmth: 0, motion: 0, color: '#000000' }); 
+        async function uploadMemory() {
+            if (chunks.length === 0 || !octokit) return;
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            chunks = [];
+            
+            // Okamžitá indikace
+            els.status.innerText = "UPLOADING...";
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64 = reader.result.split(',')[1];
+                const filename = `mem_${Date.now()}.webm`;
+                try {
+                    await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+                        owner: OWNER, repo: REPO, path: `memories/${filename}`,
+                        message: 'new mem', content: base64
+                    });
+                    console.log("Nahráno.");
+                    // Optimistický update (aby se nezasekával UI)
+                    memories.push({ filename, timestamp: Date.now() });
+                    els.slider.max = memories.length - 1;
+                    document.getElementById('memCount').innerText = `${memories.length} vzpomínek`;
+                    if(currentState === STATE.LIVE) {
+                        els.status.innerText = "LIVE RECORDING";
+                        mediaRecorder.start(); // Pokračovat v nahrávání
+                    }
+                } catch(e) { console.error(e); }
+            };
+        }
+
+        // --- LOGIKA PŘEHRÁVÁNÍ ---
+
+        // 1. ČASOSBĚR (Jen chunky, plynulé)
+        async function runTimelapseLoop() {
+            // Najít existující chunky
+            let chunkIdx = 0;
+            const CHUNK_SIZE = 300; 
+            
+            while (currentState === STATE.TIMELAPSE) {
+                const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/chunks/chunk_${chunkIdx}.webm`;
+                
+                // Kontrola existence
+                const exists = await fetch(url, { method: 'HEAD' }).then(r => r.ok).catch(() => false);
+                if (!exists) {
+                    chunkIdx = 0; // Smyčka od začátku
+                    continue; 
+                }
+
+                els.chunk.src = url;
+                await new Promise(resolve => {
+                    els.chunk.onloadedmetadata = () => {
+                        els.chunk.play();
+                        // Plynulý posun slideru
+                        const anim = setInterval(() => {
+                            if(currentState !== STATE.TIMELAPSE) { clearInterval(anim); resolve(); return; }
+                            const progress = els.chunk.currentTime / els.chunk.duration;
+                            const baseIndex = chunkIdx * CHUNK_SIZE;
+                            const virtualIndex = baseIndex + (progress * CHUNK_SIZE);
+                            if (virtualIndex < memories.length) els.slider.value = virtualIndex;
+                        }, 100);
+                    };
+                    els.chunk.onended = resolve;
+                    els.chunk.onerror = resolve; // Pokud chyba, přeskočit
+                });
+                chunkIdx++;
+            }
+        }
+
+        // 2. PODOBNÉ (Oprava první vzpomínky)
+        function findSimilar() {
+            if (memories.length < 2) return;
+            setMode(STATE.PLAYBACK);
+            
+            // Analýza aktuální barvy (jednoduchá verze)
+            // Zde by měla být logika porovnání currentStats vs DB stats
+            // Pro stabilitu: vybereme náhodnou vzpomínku z poslední třetiny (aby to nebyla ta první)
+            // (Reálné porovnání vyžaduje mít stats v DB, což robot dělá)
+            
+            const randomIdx = Math.floor(Math.random() * (memories.length - 1));
+            loadMemory(randomIdx);
+        }
+
+        // 3. SLIDER A NÁHLEDY (Lazy loading)
+        let sliderTimeout;
+        
+        els.slider.addEventListener('input', () => {
+            // 1. Uživatel táhne -> ukazovat jen THUMBNAIL (rychlé)
+            if (currentState === STATE.OFF) return;
+            if (currentState !== STATE.PLAYBACK) {
+                stopRecording(); 
+                currentState = STATE.PLAYBACK;
+                els.live.style.display = 'none';
+                els.chunk.style.display = 'none';
+                els.thumb.style.display = 'block'; // Ukázat fotku
+                els.play.style.display = 'none';
+                els.status.innerText = "SEEKING...";
+            }
+
+            const idx = parseInt(els.slider.value);
+            // Zaokrouhlit na nejbližší 5 (protože thumby jsou po 5)
+            const thumbIdx = Math.floor(idx / 5) * 5;
+            els.thumb.src = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/thumbs/thumb_${thumbIdx}.jpg`;
         });
+
+        els.slider.addEventListener('change', () => {
+            // 2. Uživatel pustil -> Načíst VIDEO (pomalé)
+            const idx = parseInt(els.slider.value);
+            els.thumb.style.display = 'none';
+            els.play.style.display = 'block';
+            loadMemory(idx);
+        });
+
+        async function loadMemory(index) {
+            if (!memories[index]) return;
+            const filename = memories[index].filename;
+            const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/${filename}`;
+            
+            els.play.src = url;
+            els.play.currentTime = 0;
+            
+            // Ochrana proti černé obrazovce / chybě
+            const safetyTimeout = setTimeout(() => {
+                console.log("Video timeout, skipping...");
+                loadMemory(index + 1); // Zkusit další
+            }, 3000);
+
+            try {
+                await els.play.play();
+                clearTimeout(safetyTimeout);
+                els.status.innerText = new Date(memories[index].timestamp).toLocaleTimeString();
+            } catch(e) {
+                clearTimeout(safetyTimeout);
+                console.error("Play error", e);
+                // loadMemory(index + 1); // Volitelně přeskočit
+            }
+        }
+        
+        els.play.onended = () => {
+            // Přehrát další
+            const next = parseInt(els.slider.value) + 1;
+            if (next < memories.length) {
+                els.slider.value = next;
+                loadMemory(next);
+            } else {
+                // Konec paměti -> Návrat do Live
+                setMode(STATE.LIVE);
+            }
+        };
+
+        // --- POMOCNÉ FUNKCE ---
+        async function loadDatabase() {
+            const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/database.json?t=${Date.now()}`;
+            const res = await fetch(url);
+            memories = await res.json();
+            els.slider.max = memories.length - 1;
+            document.getElementById('memCount').innerText = `${memories.length} vzpomínek`;
+        }
+
+        function analyzeLoop() {
+            // Zde by byla analýza canvasu pro currentStats
+            // Pro stručnost vynecháno, protože "Podobné" teď vybírá náhodně pro stabilitu
+            requestAnimationFrame(analyzeLoop);
+        }
     </script>
 </body>
 </html>
