@@ -1,4 +1,4 @@
-name: Bertik Brain (No Audio Fix)
+name: Bertik Brain (Re-Timing Fix)
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
         const THUMB_DIR = 'memories/thumbs';
         const DB_PATH = 'memories/database.json';
         
-        // VRÁCENO NA 300 (Původní délka)
+        // ZŮSTÁVÁME NA 300 (5 sekund videa při 60fps)
         const CHUNK_SIZE = 300; 
 
         if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
@@ -67,7 +67,7 @@ jobs:
             }
         });
 
-        // 3. CHUNKY (VP9 - NO AUDIO)
+        // 3. CHUNKY (RE-TIMING FIX)
         const totalChunks = Math.floor(db.length / CHUNK_SIZE);
         for (let i = 0; i < totalChunks; i++) {
             const chunkName = \`chunk_\${i}.webm\`;
@@ -77,6 +77,7 @@ jobs:
                 console.log(\`Generuji \${chunkName}...\`);
                 const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
                 const tempDir = \`temp_img_\${i}\`;
+                
                 if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
                 fs.mkdirSync(tempDir);
 
@@ -84,16 +85,16 @@ jobs:
                     let count = 0;
                     slice.forEach((mem, idx) => {
                         const vPath = path.join(MEM_DIR, mem.filename);
-                        const iPath = path.join(tempDir, \`img_\${String(idx).padStart(3, '0')}.jpg\`);
+                        const iPath = path.join(tempDir, \`img_\${String(idx).padStart(4, '0')}.jpg\`);
                         try {
-                            execSync(\`ffmpeg -ss 0.0 -i "\${vPath}" -vframes 1 -q:v 2 "\${iPath}" -y\`, { stdio: 'ignore' });
+                            execSync(\`ffmpeg -ss 0.0 -i "\${vPath}" -vframes 1 -q:v 5 "\${iPath}" -y\`, { stdio: 'ignore' });
                             count++;
                         } catch(e){}
                     });
 
                     if(count > 0) {
-                        // FIX: -an (odstraní audio stopu), -row-mt 1 (multithreading)
-                        execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 3M -an -row-mt 1 -pix_fmt yuv420p "\${chunkPath}"\`);
+                        // TOTO JE TA OPRAVA: -vf "fps=60" (vynucuje přesné časování)
+                        execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%04d.jpg -c:v libvpx-vp9 -b:v 2500k -vf "fps=60,format=yuv420p" -an -g 60 -row-mt 1 "\${chunkPath}"\`);
                         console.log("Chunk hotov.");
                     }
                 } catch (e) { console.error(e.message); }
@@ -108,6 +109,6 @@ jobs:
         git config --global user.name 'Bertik Bot'
         git config --global user.email 'bot@bertik.ai'
         git add .
-        git commit -m "No Audio Fix" || echo "No changes"
+        git commit -m "Timestamp Re-Timing Fix" || echo "No changes"
         git pull --rebase origin main
         git push origin main
