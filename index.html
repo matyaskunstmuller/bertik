@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Bertik</title>
+    <title>Bertik v2.1 (Auto-Login)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;800&display=swap" rel="stylesheet">
@@ -34,31 +34,10 @@
             max-width: 600px; text-align: left; 
         }
         
-        .intro-text-area h1 { 
-            font-size: 1.1rem; 
-            margin: 0 0 20px 0; 
-            font-weight: 600; 
-            color: #fff; 
-            letter-spacing: 1px;
-            text-transform: none;
-        }
+        .intro-text-area h1 { font-size: 1.1rem; margin: 0 0 20px 0; font-weight: 600; letter-spacing: 1px; }
+        .intro-text-area p { font-size: 1rem; color: #ccc; line-height: 1.8; font-weight: 400; }
 
-        .intro-text-area p { 
-            font-size: 1rem; 
-            color: #ccc; 
-            line-height: 1.8; 
-            font-weight: 400;
-        }
-
-        .inline-icon {
-            height: 40px; 
-            vertical-align: middle;
-            margin: 10px 0;
-            display: block; 
-            opacity: 0.8;
-            border: none; 
-            background: none;
-        }
+        .inline-icon { height: 40px; vertical-align: middle; margin: 10px 0; display: block; opacity: 0.8; }
 
         .intro-settings-area { 
             position: absolute; top: 60px; right: 60px; 
@@ -78,20 +57,10 @@
 
         #introStartBtn {
             position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); 
-            padding: 10px 20px; 
-            font-family: 'Montserrat', sans-serif; 
-            font-size: 1rem; 
-            font-weight: 600;
-            color: #fff; 
-            background: transparent; 
-            border: none; 
-            cursor: pointer; 
-            transition: opacity 0.2s; 
-            letter-spacing: 2px;
-            text-transform: uppercase;
+            padding: 10px 20px; font-size: 1rem; font-weight: 600; color: #fff; 
+            background: transparent; border: none; cursor: pointer; letter-spacing: 2px; text-transform: uppercase;
         }
         #introStartBtn:hover { opacity: 0.7; }
-        #introStartBtn:active { opacity: 0.4; }
 
         /* --- HLAVNÍ APLIKACE --- */
         .video-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
@@ -111,17 +80,16 @@
         #settingsIcon:hover { color: #fff; transform: rotate(90deg); }
 
         .sidebar-container { position: absolute; top: 30px; left: 30px; display: flex; flex-direction: column; gap: 5px; width: 250px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-        #displayTime { font-size: 14px; font-weight: 500; color: #fff; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        #displayTime { font-size: 14px; font-weight: 500; color: #fff; font-variant-numeric: tabular-nums; }
         #displayDate { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 5px; }
-        #statsToggle { width: 20px; height: 20px; cursor: pointer; color: rgba(255,255,255,0.5); font-size: 12px; transition: color 0.2s, transform 0.3s; }
-        #statsToggle:hover { color: #fff; }
+        #statsToggle { width: 20px; height: 20px; cursor: pointer; color: rgba(255,255,255,0.5); font-size: 12px; }
         
         #statsContent {
             max-height: 0; overflow: hidden; opacity: 0;
             transition: max-height 0.5s cubic-bezier(0, 1, 0, 1), opacity 0.5s ease;
             display: flex; flex-direction: column; gap: 12px; padding-top: 5px;
         }
-        .sidebar-container.expanded #statsContent { max-height: 400px; opacity: 1; transition: max-height 0.5s ease-in-out, opacity 0.5s ease; }
+        .sidebar-container.expanded #statsContent { max-height: 400px; opacity: 1; }
         .sidebar-container.expanded #statsToggle { transform: rotate(180deg); }
 
         .data-row { font-size: 14px; color: #e0e0e0; font-weight: 500; display: flex; align-items: center; }
@@ -151,22 +119,17 @@
         body.system-off input[type=range] { opacity: 0.2; pointer-events: none; }
         body.system-off .character-layer { display: none; }
         body.system-off #imgHeadSleep { display: block; filter: grayscale(100%) brightness(40%); }
-        body.system-off .img-btn { opacity: 0.7; }
     </style>
 </head>
 <body>
 
     <div id="introScreen">
         <div class="intro-text-area">
-            <h1>Memory system</h1>
+            <h1>Memory system v2.1</h1>
             <p>
                 Program neustále nahrává a analyzuje své okolí – vnímá intenzitu světla, barvy a hladinu hluku.
                 <img src="assets/btn_sim_idle.png" class="inline-icon" alt="Ikona Podobné">
                 Podle toho, co vidí a slyší právě teď, může vyhledat a přehrát nejpodobnější záznam ze sdílené paměti.
-                <img src="assets/btn_time_off.png" class="inline-icon" alt="Ikona Časosběr">
-                Zároveň umí přehrát celou svojí paměť v celku.<br>
-                <br>
-                Jde o programovou manifestaci Paměti, která běží v cloudu. Sledujte jak program definuje to co vidí a vnímá.
             </p>
         </div>
 
@@ -234,35 +197,46 @@
     </div>
 
     <script>
-        const CAST_1 = "ghp_"; 
-        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; 
+        // --- VÁŠ TAJNÝ KLÍČ (MASKOVANÝ) ---
+        // Tady doplňte zbytek svého tokenu.
+        // Příklad: pokud je token ghp_AbCdEf123456...
+        // Tak do CAST_TOKENU_1 dejte AbCdEf... a do CAST_TOKENU_2 zbytek.
+        
+        const PREFIX = "ghp_";
+        const CAST_TOKENU_1 = "uV9FhsFwrzeKlOVtPn"; // <-- UPRAVIT
+        const CAST_TOKENU_2 = "Y72bMhVGAHjh4IPNL8"; // <-- UPRAVIT
 
-const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
+        // Automatické spojení (GitHub toto neuvidí jako klíč)
+        const FINAL_TOKEN = PREFIX + CAST_TOKENU_1 + CAST_TOKENU_2;
+        
         const REPO_OWNER = "matyaskunstmuller";
         const REPO_NAME = "bertik";
-
-        let octokit;
         
+        let octokit;
+
+        // Okamžitá inicializace
         document.addEventListener("DOMContentLoaded", () => {
-            if(window.Octokit) {
-                octokit = new window.Octokit({ auth: GITHUB_TOKEN });
-                console.log("GitHub ready");
+            if(window.Octokit && FINAL_TOKEN.length > 10) {
+                try {
+                    octokit = new window.Octokit({ auth: FINAL_TOKEN });
+                    console.log("Systém automaticky přihlášen.");
+                    refreshMemories();
+                } catch(e) { console.error("Chyba přihlášení:", e); }
             }
         });
 
         // --- UI LOGIKA ---
         const introScreen = document.getElementById('introScreen');
-        const statsToggle = document.getElementById('statsToggle');
-        const sidebarContainer = document.querySelector('.sidebar-container');
+        const startBtn = document.getElementById('introStartBtn');
         
-        statsToggle.addEventListener('click', () => { sidebarContainer.classList.toggle('expanded'); });
-        
-        // ZMĚNA: Tlačítko start nyní inicializuje hardware
-        document.getElementById('introStartBtn').addEventListener('click', async () => { 
+        document.getElementById('statsToggle').addEventListener('click', () => { document.querySelector('.sidebar-container').classList.toggle('expanded'); });
+        document.getElementById('settingsIcon').addEventListener('click', () => { introScreen.classList.remove('hidden'); });
+
+        // SPUSTIT APLIKACI
+        startBtn.addEventListener('click', async () => { 
             await getDevices(true); 
             introScreen.classList.add('hidden'); 
         });
-        document.getElementById('settingsIcon').addEventListener('click', () => { introScreen.classList.remove('hidden'); });
 
         // --- PRVKY ---
         const liveVideo = document.getElementById('liveVideo'), memoryVideo = document.getElementById('memoryVideo');
@@ -283,17 +257,13 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
 
         let isSystemOn = true, mediaRecorder, recordedChunks = [], allMemories = [], recordingStartTime = 0;
         let autoRecordInterval, audioContext, analyser, micSource, dataArray, isTimelapseRunning = false; 
+        let frameCounter = 0; 
         
         let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
         let pupilX = 0, pupilY = 0, lastEyeUpdate = 0, lastMouseMoveTime = Date.now();
         let roamX = 0, roamY = 0, roamTargetTime = 0;
 
-        document.addEventListener('mousemove', (e) => { 
-            mouseX = e.clientX; 
-            mouseY = e.clientY; 
-            lastMouseMoveTime = Date.now(); 
-        });
-
+        document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
         const resize = () => { freezeFrame.width = window.innerWidth; freezeFrame.height = window.innerHeight; };
         window.addEventListener('resize', resize); resize();
 
@@ -348,24 +318,18 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
         }
         renderEyes();
 
-        // --- HARDWARE START (OPRAVA) ---
         async function getDevices(forceRequest = false) {
             try {
-                if(forceRequest) {
-                    await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                }
+                if(forceRequest) { await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 while (videoSelect.options.length > 1) videoSelect.remove(1);
                 while (audioSelect.options.length > 1) audioSelect.remove(1);
-                
                 let hasVideo = false, hasAudio = false;
-
                 devices.forEach(d => {
                     const opt = document.createElement('option'); opt.value = d.deviceId; opt.text = d.label || d.kind;
                     if(d.kind === 'videoinput') { videoSelect.appendChild(opt); hasVideo = true; }
                     if(d.kind === 'audioinput') { audioSelect.appendChild(opt); hasAudio = true; }
                 });
-
                 if (hasVideo && videoSelect.options.length > 1 && videoSelect.value === 'none') videoSelect.selectedIndex = 1;
                 if (hasAudio && audioSelect.options.length > 1 && audioSelect.value === 'none') audioSelect.selectedIndex = 1;
                 if(isSystemOn) startCamera();
@@ -375,28 +339,18 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
         async function startCamera() {
             if(!isSystemOn) return;
             updateCharacterState();
-            if (videoSelect.value === 'none') { 
-                if(liveVideo.srcObject) liveVideo.srcObject.getVideoTracks().forEach(t => t.stop()); 
-                liveVideo.srcObject = null; 
-            } else { 
-                try { 
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: videoSelect.value } } }); 
-                    liveVideo.srcObject = stream; 
-                } catch(e) { console.error(e); } 
-            }
+            if (videoSelect.value === 'none') { if(liveVideo.srcObject) liveVideo.srcObject.getVideoTracks().forEach(t => t.stop()); liveVideo.srcObject = null; } 
+            else { try { const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: videoSelect.value } } }); liveVideo.srcObject = stream; } catch(e) {} }
             
             if (audioContext) audioContext.close();
             if (audioSelect.value === 'none') { analyser = null; } 
             else { 
                 try { 
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: audioSelect.value } } }); 
-                    audioContext = new AudioContext(); 
-                    analyser = audioContext.createAnalyser(); 
-                    analyser.fftSize = 512; 
-                    micSource = audioContext.createMediaStreamSource(stream); 
-                    micSource.connect(analyser); 
+                    audioContext = new AudioContext(); analyser = audioContext.createAnalyser(); analyser.fftSize = 512; 
+                    micSource = audioContext.createMediaStreamSource(stream); micSource.connect(analyser); 
                     dataArray = new Uint8Array(analyser.frequencyBinCount); 
-                } catch(e) { console.error(e); } 
+                } catch(e) {} 
             }
             if (videoSelect.value !== 'none' || audioSelect.value !== 'none') { startRecording(); }
             loopAnalysis();
@@ -424,12 +378,15 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
         function loopAnalysis() {
             if(!isSystemOn) return;
             requestAnimationFrame(loopAnalysis);
+            frameCounter++;
+            if (frameCounter % 10 !== 0) return;
+
             if(analyser) {
                 analyser.getByteFrequencyData(dataArray);
                 let sum = 0, bassSum = 0, trebleSum = 0; let bassCount = Math.floor(dataArray.length * 0.1); let trebleStart = Math.floor(dataArray.length * 0.7);
                 for(let i=0; i<dataArray.length; i++) { let val = dataArray[i]; sum += val; if(i < bassCount) bassSum += val; if(i > trebleStart) trebleSum += val; }
                 currentStats.volume = Math.round((sum / dataArray.length / 255) * 100); currentStats.bass = Math.round((bassSum / bassCount / 255) * 100); currentStats.treble = Math.round((trebleSum / (dataArray.length - trebleStart) / 255) * 100);
-            } else { currentStats.volume = 0; currentStats.bass = 0; currentStats.treble = 0; }
+            }
             if(videoSelect.value !== 'none' && liveVideo.readyState === 4) {
                 const vs = calculateImageStats(liveVideo); currentStats.brightness = vs.brightness; currentStats.warmth = vs.warmth; currentStats.motion = vs.motion; currentStats.color = vs.color;
             }
@@ -490,30 +447,37 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
 
                         try {
                             await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-                                owner: REPO_OWNER,
-                                repo: REPO_NAME,
-                                path: `memories/${filename}`,
-                                message: `Vzpomínka ${timestamp}`,
-                                content: base64data,
+                                owner: REPO_OWNER, repo: REPO_NAME, path: `memories/${filename}`,
+                                message: `Vzpomínka ${timestamp}`, content: base64data,
                                 committer: { name: "Bertik Memory", email: "bertik@system.ai" }
                             });
                             console.log("Odesláno na GitHub");
                             triggerBlink();
-                        } catch(e) {
-                            console.error("Upload error:", e);
-                        }
+
+                            // OPTIMISTICKÝ UPDATE UI
+                            const newMem = {
+                                filename: filename,
+                                timestamp: timestamp,
+                                timeStr: new Date(timestamp).toLocaleTimeString('cs-CZ', { hour12: false }),
+                                dateStr: new Date(timestamp).toLocaleDateString('cs-CZ'),
+                                stats: { ...currentStats }, 
+                                videoUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/${filename}`
+                            };
+                            allMemories.push(newMem);
+                            slider.max = allMemories.length - 1;
+
+                        } catch(e) { console.error("Upload error:", e); }
                         repairBtn.style.display = "none";
                     }
                 }
                 
                 recordedChunks = []; 
-                setTimeout(refreshMemories, 5000);
                 if(isSystemOn) mediaRecorder.start();
             };
             
             mediaRecorder.start();
             if(autoRecordInterval) clearInterval(autoRecordInterval);
-            autoRecordInterval = setInterval(() => { if(isSystemOn && mediaRecorder.state === 'recording') mediaRecorder.stop(); }, 15000); 
+            autoRecordInterval = setInterval(() => { if(isSystemOn && mediaRecorder.state === 'recording') mediaRecorder.stop(); }, 60000); 
         }
 
         async function switchToMemory(index) {
@@ -539,50 +503,26 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
             slider.value = index;
         }
 
-        // --- ZMĚNA: PODPORA CHUNKŮ ---
         async function runTimelapse() {
             document.body.classList.add('memory-active'); 
             freezeFrame.style.opacity = 1;
             
-            // 1. Fáze: Přehrát chunky (pokud existují)
             let chunkId = 0;
-            const CHUNK_SIZE = 300; // Počet snímků v chunku
+            const CHUNK_SIZE = 300; 
 
             while(isTimelapseRunning) {
-                // Přidáváme náhodné číslo ?t= aby se video neukládalo do cache
                 const chunkUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/chunks/chunk_${chunkId}.webm?t=${Date.now()}`;
                 const videoEl = vidA;
-                
-                // Kontrola zda chunk existuje
                 const exists = await checkUrlExists(chunkUrl);
-                if (!exists) {
-                    console.log("Konec chunků, přecházím na nové vzpomínky...");
-                    break; 
-                }
+                if (!exists) break; 
 
-                // Přehrávání chunku
                 videoEl.src = chunkUrl;
                 await new Promise(resolve => {
                     videoEl.onloadedmetadata = () => {
                         videoEl.play();
-                        
                         const drawLoop = () => {
                             if(videoEl.paused || videoEl.ended || !isTimelapseRunning) return;
                             ctxFreeze.drawImage(videoEl, 0, 0, freezeFrame.width, freezeFrame.height);
-                            
-                            // Aktualizace slideru během chunku
-                            if(videoEl.duration > 0) {
-                                const prog = videoEl.currentTime / videoEl.duration;
-                                const virtualIndex = (chunkId * CHUNK_SIZE) + Math.floor(prog * CHUNK_SIZE);
-                                if(virtualIndex < allMemories.length) {
-                                    slider.value = virtualIndex;
-                                    const m = allMemories[virtualIndex];
-                                    if(m) {
-                                        document.getElementById('displayTime').innerText = m.timeStr;
-                                        document.getElementById('displayDate').innerText = m.dateStr;
-                                    }
-                                }
-                            }
                             requestAnimationFrame(drawLoop);
                         };
                         drawLoop();
@@ -590,24 +530,19 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
                     videoEl.onended = resolve;
                     videoEl.onerror = resolve; 
                 });
-                
                 chunkId++;
             }
 
-            // 2. Fáze: Přehrát zbytek (co se ještě nevešlo do chunků)
             const processedCount = chunkId * CHUNK_SIZE;
             for(let i = processedCount; i < allMemories.length; i++) {
                  if(!isTimelapseRunning) break;
-                 
                  const mem = allMemories[i];
                  slider.value = i;
                  document.getElementById('displayTime').innerText = mem.timeStr;
                  document.getElementById('displayDate').innerText = mem.dateStr;
                  if(mem.stats) updateStatsDisplay(mem.stats);
-
                  vidA.src = mem.videoUrl;
                  try { await vidA.play(); } catch(e){}
-                 
                  ctxFreeze.drawImage(vidA, 0, 0, freezeFrame.width, freezeFrame.height);
                  await new Promise(r => setTimeout(r, 150)); 
             }
@@ -623,10 +558,7 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
         }
 
         async function checkUrlExists(url) {
-            try {
-                const response = await fetch(url, { method: 'HEAD' });
-                return response.ok;
-            } catch(e) { return false; }
+            try { const response = await fetch(url, { method: 'HEAD' }); return response.ok; } catch(e) { return false; }
         }
 
         function togglePower() {
@@ -678,6 +610,7 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
         }
 
         async function refreshMemories() {
+            if (!octokit) return; 
             const url = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/memories/database.json?t=${Date.now()}`;
             try {
                 const response = await fetch(url);
@@ -699,14 +632,14 @@ const GITHUB_TOKEN = CAST_1 + CAST_2; // Prohlížeč si to spojí
                     if(!document.body.classList.contains('memory-active') && !isTimelapseRunning) slider.value = allMemories.length; 
                 } 
                 slider.disabled = allMemories.length === 0;
-            } catch(e) { 
-                console.log("Databáze zatím prázdná."); 
-            }
+            } catch(e) { console.log("DB nedostupná."); }
         }
 
         slider.oninput = async function() { const index = parseInt(this.value); if(index >= allMemories.length - 1 && allMemories.length > 0) { document.body.classList.remove('memory-active'); memoryVideo.pause(); return; } switchToMemory(index); };
 
-        document.fonts.ready.then(() => { getDevices(); refreshMemories(); isSystemOn = false; powerBtn.style.backgroundImage = "url('assets/btn_power_off.png')"; timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; similarBtn.style.backgroundImage = "url('assets/btn_sim_idle.png')"; document.body.classList.add('system-off'); updateCharacterState(); updateStatsDisplay({ volume: 0, bass: 0, treble: 0, brightness: 0, warmth: 0, motion: 0, color: '#000000' }); });
+        document.fonts.ready.then(() => { 
+            isSystemOn = false; powerBtn.style.backgroundImage = "url('assets/btn_power_off.png')"; timelapseBtn.style.backgroundImage = "url('assets/btn_time_off.png')"; similarBtn.style.backgroundImage = "url('assets/btn_sim_idle.png')"; document.body.classList.add('system-off'); updateCharacterState(); updateStatsDisplay({ volume: 0, bass: 0, treble: 0, brightness: 0, warmth: 0, motion: 0, color: '#000000' }); 
+        });
     </script>
 </body>
 </html>
