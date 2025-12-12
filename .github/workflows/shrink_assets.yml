@@ -1,0 +1,35 @@
+name: Shrink Assets (One Time Run)
+
+on:
+  workflow_dispatch: # Spustíš to ručně tlačítkem
+
+jobs:
+  shrink:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install FFmpeg
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+    - name: Resize Eyes
+      run: |
+        # Zmenšíme masku očí na 512x512
+        ffmpeg -i assets/eyes_alpha_channel.webm -vf scale=512:512 -c:v libvpx-vp9 -b:v 500k -an assets/eyes_alpha_channel_small.webm
+        mv assets/eyes_alpha_channel_small.webm assets/eyes_alpha_channel.webm
+        
+        # Zmenšíme zorničky na 512x512
+        ffmpeg -i assets/eyes_zornicky.webm -vf scale=512:512 -c:v libvpx-vp9 -b:v 500k -an assets/eyes_zornicky_small.webm
+        mv assets/eyes_zornicky_small.webm assets/eyes_zornicky.webm
+
+    - name: Commit Changes
+      run: |
+        git config --global user.name 'Bertik Bot'
+        git config --global user.email 'bot@bertik.ai'
+        git add assets/*.webm
+        git commit -m "Optimized assets to 512px"
+        git push
