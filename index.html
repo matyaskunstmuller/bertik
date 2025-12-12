@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v4.0 (Final UI)</title>
+    <title>Bertik v5.0 (Fixed Core)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
     
     <script type="module">
         import { Octokit } from "https://esm.sh/@octokit/rest";
@@ -14,376 +14,578 @@
     </script>
     
     <style>
-        /* --- GLOBÁLNÍ STYLY --- */
+        /* --- LAYOUT A VRSTVY --- */
         body { 
             margin: 0; background: #000; color: #fff; 
-            font-family: 'Montserrat', sans-serif; 
-            overflow: hidden; user-select: none; 
-            -webkit-tap-highlight-color: transparent; /* Pro mobily */
+            font-family: 'Montserrat', sans-serif; overflow: hidden; user-select: none; 
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* --- ÚVODNÍ OBRAZOVKA --- */
-        #introScreen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #000; z-index: 5000;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 0.5s ease, visibility 0.5s;
-            opacity: 1; visibility: visible;
+        /* 1. VRSTVA: POZADÍ A AVATAR (Z-INDEX 1-5) */
+        .avatar-layer { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 100%; max-width: 600px; aspect-ratio: 1/1; 
+            pointer-events: none; z-index: 1;
+            display: flex; justify-content: center; align-items: center;
         }
-        #introScreen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-        .intro-content { width: 90%; max-width: 600px; text-align: left; margin-bottom: 20px; }
-        .intro-content h1 { font-size: 1.5rem; margin-bottom: 20px; font-weight: 600; letter-spacing: 1px; color: #fff; }
-        .intro-content p { font-size: 1rem; color: #ccc; line-height: 1.6; }
-
-        .intro-settings { 
-            position: absolute; top: 40px; right: 40px; 
-            display: flex; flex-direction: column; gap: 20px; align-items: flex-end; 
-        }
-        .setting-group { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-        .setting-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: #666; font-weight: 700; }
+        .char-part { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         
-        .simple-select {
-            background: transparent; border: none; border-bottom: 1px solid #333; color: #fff; 
-            font-family: 'Montserrat', sans-serif; font-size: 16px; padding: 10px; width: 220px; 
-            text-align: right; outline: none; cursor: pointer;
+        #headSleep { z-index: 5; display: none; } /* Spící */
+        #headBase { z-index: 2; transition: opacity 0.1s; } /* Základní */
+        #eyesCanvas { z-index: 3; } /* Oči */
+        #layerBlink { z-index: 4; opacity: 0; } /* Mrkání */
+        #layerTongue { z-index: 4; opacity: 0; } /* Jazyk */
+        #layerEars { z-index: 1; } /* Uši (vzadu) */
+
+        /* 2. VRSTVA: VIDEO (Z-INDEX 10) */
+        .video-layer { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            object-fit: cover; z-index: 10; background: #000; 
+            display: none; /* Defaultně skryto */
         }
-        .simple-select option { background: #111; text-align: left; }
+        #liveVideo { transform: scaleX(-1); } /* Zrcadlení kamery */
+        #thumbPreview { z-index: 11; object-fit: contain; background: #000; } /* Náhled při posunu */
 
-        #introStartBtn {
-            margin-top: 40px; padding: 15px 40px; 
-            font-size: 1.2rem; font-weight: 800; color: #fff; 
-            background: transparent; border: 2px solid #fff; 
-            cursor: pointer; letter-spacing: 3px; text-transform: uppercase;
-            transition: all 0.2s;
-        }
-        #introStartBtn:active { background: #fff; color: #000; }
-
-        /* --- VIDEA --- */
-        .layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        #liveVideo { transform: scaleX(-1); z-index: 1; display: none; }
-        #playbackVideo { z-index: 2; display: none; }
-        #chunkPlayer { z-index: 2; display: none; }
-        #thumbPreview { z-index: 3; display: none; background: #000; object-fit: contain; }
-
-        /* --- UI ROZHRANÍ --- */
+        /* 3. VRSTVA: UI (Z-INDEX 100) */
         #uiLayer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
         .interactive { pointer-events: auto; cursor: pointer; }
 
-        /* Info vpravo nahoře */
-        .top-right-info {
-            position: absolute; top: 30px; right: 30px; 
-            display: flex; flex-direction: column; align-items: flex-end;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        /* INFO VPRAVO NAHOŘE */
+        .top-right { 
+            position: absolute; top: 20px; right: 20px; 
+            display: flex; flex-direction: column; align-items: flex-end; 
+            text-shadow: 1px 1px 2px black;
         }
-        #settingsIcon { font-size: 28px; margin-bottom: 15px; opacity: 0.6; transition: 0.3s; }
-        #settingsIcon:hover { opacity: 1; transform: rotate(90deg); }
+        #settingsBtn { font-size: 24px; opacity: 0.5; margin-bottom: 10px; transition: 0.3s; }
+        #settingsBtn:hover { opacity: 1; transform: rotate(90deg); }
         
-        /* Sidebar (Stats) */
-        .sidebar { 
-            display: flex; flex-direction: column; align-items: flex-end; gap: 5px; 
-            transition: opacity 0.3s;
-        }
-        #displayTime { font-size: 1.2rem; font-weight: 500; font-variant-numeric: tabular-nums; }
-        #displayDate { font-size: 0.9rem; color: #ccc; margin-bottom: 5px; }
-        #statsToggle { font-size: 12px; opacity: 0.5; padding: 5px; }
+        .info-box { text-align: right; }
+        #timeDisplay { font-size: 1.2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+        #dateDisplay { font-size: 0.8rem; color: #bbb; margin-bottom: 5px; }
         
-        #statsData {
-            display: flex; flex-direction: column; gap: 8px; margin-top: 10px;
-            max-height: 0; overflow: hidden; opacity: 0; transition: all 0.5s ease;
+        #statsContainer { 
+            display: flex; flex-direction: column; gap: 4px; margin-top: 5px; 
+            background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;
+            transition: opacity 0.3s; opacity: 0; /* Default skryté */
         }
-        .sidebar.expanded #statsData { max-height: 300px; opacity: 1; }
-        .sidebar.expanded #statsToggle { transform: rotate(180deg); }
+        .info-box:hover #statsContainer { opacity: 1; } /* Ukázat po najetí */
 
-        .stat-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-size: 0.8rem; color: #aaa; }
-        .bar-bg { width: 80px; height: 4px; background: #333; border-radius: 2px; overflow: hidden; }
+        .stat-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-size: 0.7rem; color: #aaa; }
+        .bar-bg { width: 60px; height: 4px; background: #444; border-radius: 2px; overflow: hidden; }
         .bar-fill { height: 100%; background: #fff; width: 0%; transition: width 0.2s; }
-        .color-box { width: 80px; height: 4px; background: #000; border-radius: 2px; }
+        .color-preview { width: 60px; height: 4px; background: #000; border-radius: 2px; }
 
-        /* AVATAR (Uprostřed) */
-        .center-avatar { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 100%; max-width: 500px; aspect-ratio: 1/1; 
-            pointer-events: none; display: flex; justify-content: center; align-items: center;
-        }
-        .char-part { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-        #headSleep { z-index: 20; }
-        #headBase { z-index: 10; opacity: 0; transition: opacity 0.5s; }
-        #eyesCanvas { z-index: 15; opacity: 0; transition: opacity 0.5s; }
-        #layerBlink { z-index: 25; }
-        #layerEars { z-index: 30; opacity: 0; }
-        #layerTongue { z-index: 40; }
-
-        /* DOLNÍ OVLÁDÁNÍ */
-        .bottom-controls {
+        /* OVLÁDÁNÍ VLEVO DOLE */
+        .bottom-left { 
             position: absolute; bottom: 30px; left: 30px; right: 30px;
-            display: flex; flex-direction: column; gap: 15px;
+            display: flex; flex-direction: column; gap: 15px; 
         }
         
-        .buttons-container { display: flex; gap: 20px; align-items: flex-end; }
+        .buttons-row { display: flex; gap: 20px; align-items: flex-end; }
         
-        .ctrl-btn {
+        .big-btn {
             width: 70px; height: 70px; 
             background-size: contain; background-repeat: no-repeat; background-position: center;
-            background-color: transparent; border: none;
+            background-color: transparent; border: none; 
             transition: transform 0.1s, filter 0.2s;
-            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
         }
-        .ctrl-btn:active { transform: scale(0.9); filter: brightness(0.8); }
+        .big-btn:active { transform: scale(0.9); filter: brightness(0.7); }
 
         /* Slider */
-        .slider-box { width: 100%; height: 40px; display: flex; align-items: center; }
-        input[type=range] {
-            width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; height: 30px;
+        .slider-wrapper { width: 100%; height: 40px; display: flex; align-items: center; }
+        input[type=range] { 
+            width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; 
         }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;
+        input[type=range]::-webkit-slider-runnable-track { 
+            width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; 
         }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; 
-            background: #fff; margin-top: -8px; box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            transition: transform 0.1s;
-        }
-        input[type=range]:active::-webkit-slider-thumb { transform: scale(1.3); }
-
-        #repairBtn { 
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
-            background: orange; color: black; border: none; padding: 5px 15px; 
-            border-radius: 20px; font-weight: 700; font-size: 12px; display: none; 
+        input[type=range]::-webkit-slider-thumb { 
+            -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; 
+            background: #fff; margin-top: -9px; box-shadow: 0 0 10px rgba(0,0,0,0.5); 
         }
 
-        /* --- MOBILNÍ OPTIMALIZACE --- */
+        /* Loading & Status */
+        #uploadIndicator { 
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #ffaa00; color: #000; padding: 5px 15px; border-radius: 20px;
+            font-weight: 700; font-size: 11px; display: none; z-index: 200;
+        }
+
+        /* Úvodní obrazovka */
+        #introLayer {
+            position: fixed; inset: 0; background: #000; z-index: 5000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s;
+        }
+        #introLayer.hidden { opacity: 0; pointer-events: none; }
+        
+        .settings-panel { 
+            margin-bottom: 30px; text-align: right; 
+            display: flex; flex-direction: column; gap: 10px; 
+        }
+        select { background: #111; color: #fff; border: 1px solid #444; padding: 5px; width: 200px; }
+        
+        #startSystemBtn {
+            padding: 15px 40px; border: 2px solid #fff; background: transparent; 
+            color: #fff; font-weight: 800; font-size: 1.2rem; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        #startSystemBtn:hover { background: #fff; color: #000; }
+
+        /* Mobilní úpravy */
         @media (max-width: 600px) {
-            .bottom-controls { bottom: 50px; left: 20px; right: 20px; }
-            .ctrl-btn { width: 80px; height: 80px; } /* Větší tlačítka */
-            .slider-box { height: 60px; }
-            input[type=range]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -12px; }
-            .sidebar { transform: scale(0.9); transform-origin: top right; }
-            .intro-content h1 { font-size: 1.2rem; }
+            .bottom-left { bottom: 60px; left: 20px; right: 20px; }
+            .big-btn { width: 80px; height: 80px; }
+            #statsContainer { display: none; } /* Na mobilu schovat detaily */
         }
     </style>
 </head>
 <body>
 
-    <div id="introScreen">
-        <div class="intro-content">
-            <h1>BERTIK MEMORY V4</h1>
-            <p>Systém sdílené paměti a vizuální analýzy.<br>V3.0 Core | Optimized Chunks | Mobile Ready</p>
+    <div id="introLayer">
+        <h1 style="letter-spacing: 5px; margin-bottom: 40px;">BERTIK MEMORY</h1>
+        <div class="settings-panel interactive">
+            <label>KAMERA <select id="selVideo"><option>Načítám...</option></select></label>
+            <label>AUDIO <select id="selAudio"><option>Načítám...</option></select></label>
         </div>
-        
-        <div class="intro-settings interactive">
-            <div class="setting-group">
-                <span class="setting-label">Kamera</span>
-                <select id="videoSource" class="simple-select"><option value="none">Načítám...</option></select>
-            </div>
-            <div class="setting-group">
-                <span class="setting-label">Mikrofon</span>
-                <select id="audioSource" class="simple-select"><option value="none">Načítám...</option></select>
-            </div>
-        </div>
-
-        <button id="introStartBtn" class="interactive">SPUSTIT SYSTÉM</button>
+        <button id="startSystemBtn" class="interactive">ZAPNOUT SYSTÉM</button>
     </div>
 
-    <video id="liveVideo" class="layer" autoplay muted playsinline></video>
-    <video id="playbackVideo" class="layer" playsinline></video>
-    <video id="chunkPlayer" class="layer" playsinline></video>
-    <img id="thumbPreview" class="layer">
-
-    <video id="sourceMask" src="assets/eyes_alpha_channel.webm" loop muted style="display:none;"></video>
-    <video id="sourcePupils" src="assets/eyes_zornicky.webm" loop muted style="display:none;"></video>
-    
-    <div class="center-avatar">
+    <div class="avatar-layer">
         <img id="headSleep" class="char-part" src="assets/head_sleep.png">
+        
+        <video id="layerEars" class="char-part" src="assets/ears_active.webm" loop muted playsinline></video>
         <video id="headBase" class="char-part" src="assets/head_idle.webm" loop muted playsinline></video>
         <canvas id="eyesCanvas" class="char-part" width="1024" height="1024"></canvas>
+        
         <video id="layerBlink" class="char-part" src="" muted playsinline></video>
-        <video id="layerEars" class="char-part" src="assets/ears_active.webm" loop muted playsinline></video>
         <video id="layerTongue" class="char-part" src="" muted playsinline></video>
     </div>
+    
+    <video id="sourceMask" src="assets/eyes_alpha_channel.webm" loop muted style="display:none"></video>
+    <video id="sourcePupils" src="assets/eyes_zornicky.webm" loop muted style="display:none"></video>
 
-    <div id="uiLayer">
-        <button id="repairBtn">UPLOADING...</button>
+    <video id="liveVideo" class="video-layer" autoplay muted playsinline></video>
+    <video id="playbackVideo" class="video-layer" playsinline></video>
+    <video id="chunkVideo" class="video-layer" playsinline></video>
+    <img id="thumbPreview" class="video-layer"> <div id="uiLayer">
+        <div id="uploadIndicator">ODESÍLÁM...</div>
 
-        <div class="top-right-info interactive">
-            <div id="settingsIcon">⚙</div>
-            
-            <div class="sidebar">
-                <div id="displayTime">00:00:00</div>
-                <div id="displayDate">01. 01. 2025</div>
-                <div id="statsToggle">▼</div>
-                
-                <div id="statsData">
-                    <div class="stat-row">HLASITOST <div class="bar-bg"><div id="barVol" class="bar-fill"></div></div></div>
-                    <div class="stat-row">HLOUBKY <div class="bar-bg"><div id="barBass" class="bar-fill"></div></div></div>
-                    <div class="stat-row">VÝŠKY <div class="bar-bg"><div id="barTreble" class="bar-fill"></div></div></div>
-                    <div class="stat-row">JAS <div class="bar-bg"><div id="barBright" class="bar-fill"></div></div></div>
-                    <div class="stat-row">TEPLOTA <div class="bar-bg"><div id="barWarm" class="bar-fill"></div></div></div>
-                    <div class="stat-row">POHYB <div class="bar-bg"><div id="barMotion" class="bar-fill"></div></div></div>
-                    <div class="stat-row">BARVA <div class="color-box" id="boxColor"></div></div>
+        <div class="top-right interactive">
+            <div id="settingsBtn">⚙</div>
+            <div class="info-box">
+                <div id="timeDisplay">00:00</div>
+                <div id="dateDisplay">--.--.----</div>
+                <div id="statsContainer">
+                    <div class="stat-row">HLASITOST <div class="bar-bg"><div id="fillVol" class="bar-fill"></div></div></div>
+                    <div class="stat-row">SVĚTLO <div class="bar-bg"><div id="fillBri" class="bar-fill"></div></div></div>
+                    <div class="stat-row">TEPLOTA <div class="bar-bg"><div id="fillWarm" class="bar-fill"></div></div></div>
+                    <div class="stat-row">POHYB <div class="bar-bg"><div id="fillMot" class="bar-fill"></div></div></div>
+                    <div class="stat-row">BARVA <div class="color-preview" id="fillCol"></div></div>
                 </div>
             </div>
         </div>
 
-        <div class="bottom-controls interactive">
-            <div class="buttons-container">
-                <button id="btnSimilar" class="ctrl-btn" style="background-image: url('assets/btn_sim_idle.png')"></button>
-                <button id="btnTime" class="ctrl-btn" style="background-image: url('assets/btn_time_off.png')"></button>
-                <button id="btnPower" class="ctrl-btn" style="background-image: url('assets/btn_power_off.png')"></button>
+        <div class="bottom-left interactive">
+            <div class="buttons-row">
+                <button id="btnSimilar" class="big-btn" style="background-image: url('assets/btn_sim_idle.png')"></button>
+                <button id="btnPower" class="big-btn" style="background-image: url('assets/btn_power_off.png')"></button>
+                <button id="btnTime" class="big-btn" style="background-image: url('assets/btn_time_off.png')"></button>
             </div>
-            <div class="slider-box">
+            <div class="slider-wrapper">
                 <input type="range" id="mainSlider" min="0" max="100" value="100" disabled>
             </div>
         </div>
     </div>
 
-    <script>
-        // --- KONFIGURACE ---
-        const CAST_1 = "ghp_"; 
-        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! DOPLNIT !!!
-        const TOKEN = CAST_1 + CAST_2;
-        const OWNER = "matyaskunstmuller";
-        const REPO = "bertik";
+    <canvas id="analysisCanvas" width="64" height="64" style="display:none"></canvas>
 
-        // --- STAVY ---
+    <script>
+        // --- 1. KONFIGURACE (TOKEN) ---
+        const CAST_1 = "ghp_"; 
+        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! VLOŽIT ZDE !!!
+        const TOKEN = CAST_1 + CAST_2;
+        const REPO = { owner: "matyaskunstmuller", name: "bertik" };
+
+        // --- 2. STAVY A PROMĚNNÉ ---
         const STATE = { OFF: 0, LIVE: 1, PLAYBACK: 2, TIMELAPSE: 3 };
-        let currentState = STATE.OFF;
+        let curState = STATE.OFF;
         
-        // --- GLOBAL ---
-        let octokit, mediaRecorder, chunks = [];
+        let octokit;
         let memories = [];
-        let autoRecInterval, analyser, dataArray, micSource;
-        let selectedCameraId = null; // Fix pro mobily
+        let mediaRecorder, chunks = [];
+        let recInterval, analyser, dataArray;
+        let camId = null; // Zapamatovaná kamera
         
-        // Avatar vars
-        let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
-        let lastEyeUpdate = 0, pupilX = 0, pupilY = 0;
-        
-        // Prvky
-        const el = {
-            intro: document.getElementById('introScreen'),
+        // Analýza
+        let currentStats = { r:0, g:0, b:0, bri:0, vol:0 };
+        const ctxAnalysis = document.getElementById('analysisCanvas').getContext('2d');
+
+        // Avatar
+        let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
+        let pupilX=0, pupilY=0;
+        const ctxEyes = document.getElementById('eyesCanvas').getContext('2d');
+
+        // Elementy
+        const ui = {
             live: document.getElementById('liveVideo'),
             play: document.getElementById('playbackVideo'),
-            chunk: document.getElementById('chunkPlayer'),
+            chunk: document.getElementById('chunkVideo'),
             thumb: document.getElementById('thumbPreview'),
             slider: document.getElementById('mainSlider'),
-            btnPower: document.getElementById('btnPower'),
+            btnPwr: document.getElementById('btnPower'),
             btnTime: document.getElementById('btnTime'),
             btnSim: document.getElementById('btnSimilar'),
+            indicator: document.getElementById('uploadIndicator'),
             headS: document.getElementById('headSleep'),
-            headBase: document.getElementById('headBase'),
-            eyesC: document.getElementById('eyesCanvas'),
-            ears: document.getElementById('layerEars'),
+            headB: document.getElementById('headBase'),
+            eyes: document.getElementById('eyesCanvas'),
             blink: document.getElementById('layerBlink'),
             tongue: document.getElementById('layerTongue'),
-            vidSel: document.getElementById('videoSource'),
-            audSel: document.getElementById('audioSource'),
-            repair: document.getElementById('repairBtn')
+            ears: document.getElementById('layerEars')
         };
-        const ctxEyes = el.eyesC.getContext('2d');
-        const srcMask = document.getElementById('sourceMask');
-        const srcPupils = document.getElementById('sourcePupils');
 
-        // --- INIT ---
+        // --- 3. INIT ---
         document.addEventListener("DOMContentLoaded", () => {
             if(window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
-            getDevices(false); // Jen načíst seznam
+            loadDevices();
+            setInterval(updateClock, 1000);
+            renderLoop(); // Spustí smyčku (Avatar + Analýza)
         });
 
-        document.getElementById('introStartBtn').addEventListener('click', async () => {
-            // Uložit vybrané ID kamery pro pozdější použití
-            selectedCameraId = el.vidSel.value;
-            await getDevices(true); // Povolení
-            await refreshMemories();
-            el.intro.classList.add('hidden');
-            // Po startu je OFF. Uživatel musí zapnout Power.
+        document.getElementById('startSystemBtn').addEventListener('click', async () => {
+            camId = document.getElementById('selVideo').value;
+            await initHardware();
+            await loadDB();
+            document.getElementById('introLayer').classList.add('hidden');
+            // Po startu je OFF, čeká na tlačítko Power
         });
 
-        document.getElementById('settingsIcon').addEventListener('click', () => {
-            el.intro.classList.remove('hidden');
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            document.getElementById('introLayer').classList.remove('hidden');
         });
+
+        // --- 4. OVLÁDÁNÍ (TLAČÍTKA) ---
         
-        document.getElementById('statsToggle').addEventListener('click', () => {
-            document.querySelector('.sidebar').classList.toggle('expanded');
+        // POWER
+        ui.btnPwr.addEventListener('click', () => {
+            if (curState === STATE.OFF) setState(STATE.LIVE);
+            else setState(STATE.OFF);
         });
 
-        // --- HARDWARE ---
-        async function getDevices(force) {
-            try {
-                if(force) await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                const devs = await navigator.mediaDevices.enumerateDevices();
-                el.vidSel.innerHTML = ""; el.audSel.innerHTML = "";
-                
-                devs.forEach(d => {
-                    const opt = document.createElement('option');
-                    opt.value = d.deviceId;
-                    opt.text = d.label || d.kind;
-                    if(d.kind === 'videoinput') el.vidSel.appendChild(opt);
-                    if(d.kind === 'audioinput') el.audSel.appendChild(opt);
-                });
-                
-                // Pokud už jsme měli něco vybráno, zkusíme to obnovit
-                if(selectedCameraId) el.vidSel.value = selectedCameraId;
-                
-            } catch(e) { console.warn(e); }
-        }
+        // TIMELAPSE
+        ui.btnTime.addEventListener('click', () => {
+            if (curState === STATE.OFF) return;
+            if (curState === STATE.TIMELAPSE) setState(STATE.LIVE); // Vypnout -> Live
+            else setState(STATE.TIMELAPSE);
+        });
 
-        async function startCamera() {
-            try {
-                // Zastavit předchozí
-                if(el.live.srcObject) el.live.srcObject.getTracks().forEach(t => t.stop());
-                
-                const vidId = el.vidSel.value;
-                const audId = el.audSel.value;
-                
-                const constraints = {
-                    video: vidId !== 'none' ? { deviceId: { exact: vidId } } : true,
-                    audio: audId !== 'none' ? { deviceId: { exact: audId } } : true
-                };
+        // SIMILAR
+        ui.btnSim.addEventListener('mousedown', () => ui.btnSim.style.backgroundImage = "url('assets/btn_sim_press.png')");
+        ui.btnSim.addEventListener('mouseup', () => {
+            ui.btnSim.style.backgroundImage = "url('assets/btn_sim_idle.png')";
+            if (curState !== STATE.OFF) findSimilar();
+        });
 
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                el.live.srcObject = stream;
-                
-                // Audio analýza
-                const audioCtx = new AudioContext();
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256;
-                micSource = audioCtx.createMediaStreamSource(stream);
-                micSource.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                
+        // SLIDER
+        ui.slider.addEventListener('input', () => {
+            // Táhnutí -> Náhled
+            if (curState === STATE.OFF) return;
+            stopRecording(); // Pauza nahrávání
+            
+            // UI změny
+            ui.live.style.display = 'none';
+            ui.play.style.display = 'none';
+            ui.chunk.style.display = 'none';
+            ui.thumb.style.display = 'block'; // Ukázat fotku
+            
+            const idx = parseInt(ui.slider.value);
+            if (idx >= memories.length) {
+                // Konec lišty -> Live náhled (zatím jen černo nebo live video)
+                ui.thumb.style.display = 'none';
+                ui.live.style.display = 'block';
+            } else {
+                // Najít nejbližší thumbnail (jsou po 5)
+                const tIdx = Math.floor(idx / 5) * 5;
+                ui.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg`;
+            }
+        });
+
+        ui.slider.addEventListener('change', () => {
+            // Puštění -> Akce
+            const idx = parseInt(ui.slider.value);
+            if (idx >= memories.length) {
+                setState(STATE.LIVE);
+            } else {
+                playMemory(idx);
+            }
+        });
+
+        // --- 5. LOGIKA STAVŮ ---
+        async function setState(newState) {
+            curState = newState;
+            console.log("State:", newState);
+
+            // Reset UI
+            ui.live.style.display = 'none';
+            ui.play.style.display = 'none';
+            ui.chunk.style.display = 'none';
+            ui.thumb.style.display = 'none';
+            ui.play.pause(); ui.chunk.pause();
+
+            // Tlačítka
+            ui.btnPwr.style.backgroundImage = (newState === STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
+            ui.btnTime.style.backgroundImage = (newState === STATE.TIMELAPSE) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
+
+            if (newState === STATE.OFF) {
+                stopRecording();
+                ui.headS.style.display = 'block';
+                ui.headB.style.opacity = 0; ui.eyes.style.opacity = 0; ui.ears.style.opacity = 0;
+                ui.slider.disabled = true;
+                if(ui.live.srcObject) ui.live.srcObject.getTracks().forEach(t=>t.stop());
+
+            } else if (newState === STATE.LIVE) {
+                await initHardware(); // Zapne kameru
                 startRecording();
-            } catch(e) { console.error("Cam error", e); }
+                ui.live.style.display = 'block';
+                // Avatar ožije
+                ui.headS.style.display = 'none';
+                ui.headB.style.opacity = 1; ui.eyes.style.opacity = 1; ui.ears.style.opacity = 1;
+                ui.headB.play(); ui.ears.play();
+                ui.slider.disabled = false;
+                ui.slider.value = memories.length; // Posunout na konec
+
+            } else if (newState === STATE.PLAYBACK) {
+                stopRecording();
+                ui.play.style.display = 'block';
+            
+            } else if (newState === STATE.TIMELAPSE) {
+                stopRecording();
+                ui.chunk.style.display = 'block';
+                runTimelapse();
+            }
         }
 
-        // --- NAHRÁVÁNÍ ---
-        function startRecording() {
-            if(!el.live.srcObject) return;
+        // --- 6. PŘEHRÁVÁNÍ ---
+        
+        async function playMemory(idx) {
+            setState(STATE.PLAYBACK);
+            const mem = memories[idx];
+            if(!mem) return;
+
+            ui.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
+            ui.slider.value = idx; // Synchronizace lišty
+
             try {
-                mediaRecorder = new MediaRecorder(el.live.srcObject, { mimeType: 'video/webm; codecs=vp9' });
-                mediaRecorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
-                mediaRecorder.onstop = uploadData;
-                mediaRecorder.start();
+                await ui.play.play();
+            } catch(e) {
+                console.log("Chyba videa, další...");
+                playMemory(idx + 1); // Skip bad video
+            }
+        }
+
+        ui.play.onended = () => {
+            const next = parseInt(ui.slider.value) + 1;
+            if (next < memories.length) playMemory(next);
+            else setState(STATE.LIVE); // Konec -> Live
+        };
+
+        // PODOBNÉ (Funkční logika)
+        function findSimilar() {
+            if (memories.length < 2) return;
+            
+            // Spočítat rozdíl (barva + jas)
+            let bestIdx = 0;
+            let minDiff = Infinity;
+
+            memories.forEach((mem, i) => {
+                if (!mem.stats) return; // Pokud nemá data, přeskočit
                 
-                clearInterval(autoRecInterval);
-                autoRecInterval = setInterval(() => {
-                    if(mediaRecorder.state === 'recording') mediaRecorder.stop();
-                }, 60000); // 1 minuta
-            } catch(e) {}
+                // Jednoduchá euklidovská vzdálenost v datech
+                const diff = Math.abs(mem.stats.brightness - currentStats.bri) +
+                             Math.abs(parseInt(mem.stats.color.slice(1), 16) - parseInt(currentStats.hex.slice(1), 16)); // Hrubý odhad
+                
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestIdx = i;
+                }
+            });
+
+            // Fallback: Pokud je bestIdx 0 (podezřelé), dej náhodné
+            if (bestIdx === 0) bestIdx = Math.floor(Math.random() * (memories.length - 1));
+
+            playMemory(bestIdx);
+            triggerTongue();
+        }
+
+        // ČASOSBĚR (Chunky)
+        async function runTimelapse() {
+            let chunkId = 0;
+            const CHUNK_SIZE = 300; 
+
+            while(curState === STATE.TIMELAPSE) {
+                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
+                const exists = await fetch(url, {method:'HEAD'}).then(r=>r.ok).catch(()=>false);
+                
+                if (!exists) { setState(STATE.LIVE); break; } // Konec -> Live
+
+                ui.chunk.src = url;
+                await new Promise(resolve => {
+                    ui.chunk.onloadedmetadata = () => {
+                        ui.chunk.play();
+                        // Simulace posunu slideru
+                        const anim = setInterval(() => {
+                            if(curState !== STATE.TIMELAPSE) { clearInterval(anim); resolve(); return; }
+                            const p = ui.chunk.currentTime / ui.chunk.duration;
+                            ui.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
+                        }, 200);
+                    };
+                    ui.chunk.onended = resolve;
+                    ui.chunk.onerror = resolve;
+                });
+                chunkId++;
+            }
+        }
+
+        // --- 7. HARDWARE & ANALÝZA ---
+        async function loadDevices() {
+            try {
+                const d = await navigator.mediaDevices.enumerateDevices();
+                const selV = document.getElementById('selVideo');
+                const selA = document.getElementById('selAudio');
+                selV.innerHTML=""; selA.innerHTML="";
+                d.forEach(dev => {
+                    const o = document.createElement('option');
+                    o.value = dev.deviceId; o.text = dev.label || dev.kind;
+                    if(dev.kind==='videoinput') selV.appendChild(o);
+                    if(dev.kind==='audioinput') selA.appendChild(o);
+                });
+            } catch(e){}
+        }
+
+        async function initHardware() {
+            try {
+                const vId = camId || document.getElementById('selVideo').value;
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: vId && vId!=='Načítám...' ? { deviceId: {exact: vId} } : true,
+                    audio: true
+                });
+                ui.live.srcObject = stream;
+                
+                // Audio
+                const ac = new AudioContext();
+                analyser = ac.createAnalyser();
+                const src = ac.createMediaStreamSource(stream);
+                src.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            } catch(e) { console.error(e); }
+        }
+
+        // HLAVNÍ SMYČKA (AVATAR + ANALÝZA)
+        function renderLoop() {
+            requestAnimationFrame(renderLoop);
+            if (curState === STATE.OFF) return;
+
+            // 1. ANALÝZA OBRAZU (každý 5. frame pro výkon)
+            if (Date.now() % 200 < 20 && ui.live.readyState === 4) {
+                ctxAnalysis.drawImage(ui.live, 0, 0, 64, 64);
+                const frame = ctxAnalysis.getImageData(0,0,64,64).data;
+                let r=0,g=0,b=0;
+                for(let i=0; i<frame.length; i+=4) { r+=frame[i]; g+=frame[i+1]; b+=frame[i+2]; }
+                const pixels = frame.length/4;
+                currentStats.r = Math.round(r/pixels);
+                currentStats.g = Math.round(g/pixels);
+                currentStats.b = Math.round(b/pixels);
+                currentStats.bri = Math.round((currentStats.r+currentStats.g+currentStats.b)/3);
+                currentStats.hex = "#" + ((1 << 24) + (currentStats.r << 16) + (currentStats.g << 8) + currentStats.b).toString(16).slice(1);
+                
+                // Update UI Stats
+                document.getElementById('fillBri').style.width = (currentStats.bri/2.55) + "%";
+                document.getElementById('fillCol').style.backgroundColor = currentStats.hex;
+            }
+
+            // 2. ANALÝZA ZVUKU
+            if (analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                const vol = dataArray[10]; // simple bass
+                document.getElementById('fillVol').style.width = (vol/2.5) + "%";
+            }
+
+            // 3. AVATAR (Oči)
+            // Sledování myši
+            const cx = window.innerWidth/2;
+            const cy = window.innerHeight/2;
+            let tx = (mouseX - cx)/30; let ty = (mouseY - cy)/30;
+            // Limit
+            tx = Math.max(-15, Math.min(15, tx)); 
+            ty = Math.max(-10, Math.min(10, ty));
+            pupilX += (tx - pupilX)*0.1; 
+            pupilY += (ty - pupilY)*0.1;
+
+            ctxEyes.clearRect(0,0,1024,1024);
+            // Maska
+            const m = document.getElementById('sourceMask');
+            const p = document.getElementById('sourcePupils');
+            if(m && p) {
+                ctxEyes.globalCompositeOperation = 'source-over';
+                ctxEyes.drawImage(m, 0,0, 1024, 1024);
+                ctxEyes.globalCompositeOperation = 'source-in';
+                ctxEyes.drawImage(p, pupilX*10 + 256, pupilY*10, 1024, 1024); // Offset pupila
+            }
+        }
+        
+        // Myš
+        document.addEventListener('mousemove', e => { mouseX=e.clientX; mouseY=e.clientY; });
+
+        // Animace obličeje
+        function triggerBlink() {
+            if(curState===STATE.OFF) return;
+            ui.headB.style.opacity = 0; ui.eyes.style.opacity = 0;
+            ui.blink.src = "assets/blink_anim.webm"; 
+            ui.blink.style.opacity = 1; ui.blink.play();
+            ui.blink.onended = () => { 
+                ui.blink.style.opacity=0; ui.headB.style.opacity=1; ui.eyes.style.opacity=1; 
+            };
+        }
+        function triggerTongue() {
+            if(curState===STATE.OFF) return;
+            ui.headB.style.opacity = 0;
+            ui.tongue.src = "assets/tongue_action.webm"; 
+            ui.tongue.style.opacity = 1; ui.tongue.play();
+            ui.tongue.onended = () => { 
+                ui.tongue.style.opacity=0; ui.headB.style.opacity=1; 
+            };
+        }
+        // Random mrkání
+        setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
+
+
+        // --- 8. NAHRÁVÁNÍ ---
+        function startRecording() {
+            if(!ui.live.srcObject) return;
+            mediaRecorder = new MediaRecorder(ui.live.srcObject, { mimeType: 'video/webm; codecs=vp9' });
+            mediaRecorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+            mediaRecorder.onstop = uploadData;
+            mediaRecorder.start();
+            
+            clearInterval(recInterval);
+            recInterval = setInterval(() => {
+                // Restartovat každou minutu
+                if(mediaRecorder.state==='recording') mediaRecorder.stop();
+            }, 60000);
         }
 
         function stopRecording() {
-            if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-            clearInterval(autoRecInterval);
+            if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
+            clearInterval(recInterval);
         }
 
         async function uploadData() {
-            if(chunks.length === 0 || !octokit) return;
-            // Pokud nejsme v LIVE módu (tzn. uživatel kouká na vzpomínky), nenahráváme
-            if (currentState !== STATE.LIVE) { chunks = []; return; }
-
-            el.repair.style.display = 'block';
-            const blob = new Blob(chunks, { type: 'video/webm' });
+            if(chunks.length === 0 || curState !== STATE.LIVE || !octokit) return;
+            
+            ui.indicator.style.display = 'block';
+            const blob = new Blob(chunks, {type:'video/webm'});
             chunks = [];
             
             const reader = new FileReader();
@@ -393,267 +595,32 @@
                 const fname = `mem_${Date.now()}.webm`;
                 try {
                     await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-                        owner: OWNER, repo: REPO, path: `memories/${fname}`,
-                        message: 'new', content: b64
+                        owner: REPO.owner, repo: REPO.name, path: `memories/${fname}`,
+                        message: 'mem', content: b64
                     });
-                    
-                    // Add to UI
-                    memories.push({ filename: fname, timestamp: Date.now() });
-                    el.slider.max = memories.length - 1;
-                    if(currentState === STATE.LIVE) el.slider.value = memories.length; // Držet na konci
-                    
+                    memories.push({filename: fname, timestamp: Date.now(), stats: {...currentStats}}); // Optimisticky přidat
+                    ui.slider.max = memories.length;
+                    if(curState===STATE.LIVE) ui.slider.value = memories.length;
                 } catch(e) { console.error(e); }
-                el.repair.style.display = 'none';
-                if(currentState === STATE.LIVE) mediaRecorder.start();
+                
+                ui.indicator.style.display = 'none';
+                if(curState===STATE.LIVE) mediaRecorder.start();
             };
         }
 
-        // --- STAVOVÝ AUTOMAT ---
-        el.btnPower.addEventListener('click', () => {
-            if(currentState === STATE.OFF) setMode(STATE.LIVE); // Zapnout
-            else if(currentState === STATE.LIVE) setMode(STATE.OFF); // Vypnout
-            else setMode(STATE.LIVE); // Návrat z přehrávání
-        });
-
-        el.btnTime.addEventListener('click', () => {
-            if(currentState === STATE.OFF) return;
-            if(currentState === STATE.TIMELAPSE) setMode(STATE.LIVE);
-            else setMode(STATE.TIMELAPSE);
-        });
-
-        // "Press" efekt pro Similar
-        el.btnSim.addEventListener('mousedown', () => { el.btnSim.style.backgroundImage = "url('assets/btn_sim_press.png')"; });
-        el.btnSim.addEventListener('mouseup', () => { 
-            el.btnSim.style.backgroundImage = "url('assets/btn_sim_idle.png')"; 
-            findSimilar();
-        });
-
-        async function setMode(mode) {
-            currentState = mode;
-            
-            // Reset Layers
-            el.live.style.display = 'none';
-            el.play.style.display = 'none';
-            el.chunk.style.display = 'none';
-            el.thumb.style.display = 'none';
-            el.chunk.pause(); el.play.pause();
-
-            // Avatar & UI updates
-            if(mode === STATE.OFF) {
-                stopRecording();
-                el.headS.style.display = 'block';
-                el.headBase.style.opacity = 0;
-                el.eyesC.style.opacity = 0;
-                el.ears.style.opacity = 0;
-                el.slider.disabled = true;
-                el.btnPower.style.backgroundImage = "url('assets/btn_power_off.png')";
-                el.btnTime.style.backgroundImage = "url('assets/btn_time_off.png')";
-                if(el.live.srcObject) el.live.srcObject.getTracks().forEach(t => t.stop());
-
-            } else if (mode === STATE.LIVE) {
-                await startCamera(); // Zapne nahrávání
-                el.live.style.display = 'block';
-                el.headS.style.display = 'none';
-                el.headBase.style.opacity = 1;
-                el.eyesC.style.opacity = 1;
-                el.ears.style.opacity = 1;
-                el.slider.disabled = false;
-                el.slider.value = memories.length; // Na konec (Live)
-                el.btnPower.style.backgroundImage = "url('assets/btn_power_on.png')";
-                el.btnTime.style.backgroundImage = "url('assets/btn_time_off.png')";
-
-            } else if (mode === STATE.TIMELAPSE) {
-                stopRecording(); // Vypne nahrávání
-                el.chunk.style.display = 'block';
-                el.btnTime.style.backgroundImage = "url('assets/btn_time_on.png')";
-                runTimelapse();
-
-            } else if (mode === STATE.PLAYBACK) {
-                stopRecording(); // Vypne nahrávání
-                el.play.style.display = 'block';
-                el.btnTime.style.backgroundImage = "url('assets/btn_time_off.png')";
-                // Avatar idle
-            }
-        }
-
-        // --- AVATAR LOGIKA (OČI) ---
-        document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-        
-        function renderAvatar() {
-            if(currentState !== STATE.OFF) {
-                const now = Date.now();
-                // Analýza zvuku pro uši/pusu
-                if(analyser) {
-                    analyser.getByteFrequencyData(dataArray);
-                    const vol = dataArray[10]; // Jednoduchá detekce
-                    // Stats update
-                    document.getElementById('barVol').style.width = (vol/2.5) + "%";
-                }
-
-                // Oči
-                if(now - lastEyeUpdate > 50) {
-                    const cx = window.innerWidth/2;
-                    const cy = window.innerHeight/2;
-                    // Jednoduchý tracking myši
-                    let tx = (mouseX - cx) / 30;
-                    let ty = (mouseY - cy) / 30;
-                    // Limit
-                    tx = Math.max(-10, Math.min(10, tx));
-                    ty = Math.max(-10, Math.min(10, ty));
-                    
-                    pupilX += (tx - pupilX) * 0.2;
-                    pupilY += (ty - pupilY) * 0.2;
-                    
-                    ctxEyes.clearRect(0,0,1024,1024);
-                    // Maska očí
-                    ctxEyes.globalCompositeOperation = 'source-over';
-                    ctxEyes.drawImage(srcMask, 0, 0, 1024, 1024);
-                    // Zorničky oříznuté maskou
-                    ctxEyes.globalCompositeOperation = 'source-in';
-                    ctxEyes.drawImage(srcPupils, pupilX*15 + 512-512, pupilY*15, 1024, 1024);
-                    ctxEyes.globalCompositeOperation = 'source-over';
-                    
-                    lastEyeUpdate = now;
-                }
-            }
-            requestAnimationFrame(renderAvatar);
-        }
-        renderAvatar();
-
-        function triggerBlink() {
-            if(currentState === STATE.OFF) return;
-            el.headBase.style.opacity = 0; el.eyesC.style.opacity = 0;
-            el.blink.src = "assets/blink_anim.webm"; el.blink.play();
-            el.blink.onended = () => { el.blink.src=""; el.headBase.style.opacity=1; el.eyesC.style.opacity=1; };
-        }
-        function triggerTongue() {
-            if(currentState === STATE.OFF) return;
-            el.tongue.src = "assets/tongue_action.webm"; el.tongue.play();
-            el.tongue.onended = () => { el.tongue.src=""; };
-        }
-        // Občasné mrkání
-        setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 3000);
-
-        // --- PŘEHRÁVÁNÍ A LOGIKA ---
-        
-        // Podobné
-        function findSimilar() {
-            if(memories.length < 5) return;
-            // Simulace: Najde náhodnou vzpomínku, ale ne tu úplně první (0)
-            const rnd = Math.floor(Math.random() * (memories.length - 2)) + 1;
-            setMode(STATE.PLAYBACK);
-            el.slider.value = rnd;
-            playMemory(rnd);
-            triggerTongue();
-        }
-
-        // Časosběr (Chunky)
-        async function runTimelapse() {
-            let chunkId = 0;
-            const CHUNK_SIZE = 300; 
-            
-            while(currentState === STATE.TIMELAPSE) {
-                const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/chunks/chunk_${chunkId}.webm`;
-                const exists = await fetch(url, {method:'HEAD'}).then(r=>r.ok).catch(()=>false);
-                
-                if(!exists) {
-                    // Konec chunků -> Jít na LIVE
-                    setMode(STATE.LIVE);
-                    break;
-                }
-
-                el.chunk.src = url;
-                await new Promise(resolve => {
-                    el.chunk.onloadedmetadata = () => {
-                        el.chunk.play();
-                        // Simulace posunu slideru
-                        const anim = setInterval(() => {
-                            if(currentState !== STATE.TIMELAPSE) { clearInterval(anim); resolve(); return; }
-                            const progress = el.chunk.currentTime / el.chunk.duration;
-                            const realIdx = (chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE);
-                            if(realIdx < memories.length) el.slider.value = realIdx;
-                        }, 200);
-                    };
-                    el.chunk.onended = resolve;
-                    el.chunk.onerror = resolve; 
-                });
-                chunkId++;
-            }
-        }
-
-        // Slider Input (Náhledy)
-        el.slider.addEventListener('input', () => {
-            if(currentState === STATE.OFF) return;
-            if(currentState !== STATE.PLAYBACK) setMode(STATE.PLAYBACK);
-            
-            el.play.style.display = 'none';
-            el.thumb.style.display = 'block';
-            
-            const idx = parseInt(el.slider.value);
-            // Konec slideru -> LIVE
-            if(idx >= memories.length) {
-                el.thumb.style.display = 'none';
-                el.live.style.display = 'block';
-                return;
-            }
-
-            const thumbIdx = Math.floor(idx / 5) * 5;
-            el.thumb.src = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/thumbs/thumb_${thumbIdx}.jpg`;
-        });
-
-        el.slider.addEventListener('change', () => {
-            const idx = parseInt(el.slider.value);
-            if(idx >= memories.length) {
-                setMode(STATE.LIVE);
-            } else {
-                playMemory(idx);
-            }
-        });
-
-        async function playMemory(idx) {
-            el.thumb.style.display = 'none';
-            el.play.style.display = 'block';
-            
-            const mem = memories[idx];
-            el.play.src = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/${mem.filename}`;
-            
-            // Timeout pojistka proti černé obrazovce
-            const to = setTimeout(() => {
-                console.log("Video timeout, next...");
-                if(currentState === STATE.PLAYBACK) playMemory(idx + 1);
-            }, 3000);
-
+        async function loadDB() {
             try {
-                await el.play.play();
-                clearTimeout(to);
-            } catch(e) { clearTimeout(to); }
-        }
-
-        el.play.onended = () => {
-            const next = parseInt(el.slider.value) + 1;
-            if(next < memories.length) {
-                el.slider.value = next;
-                playMemory(next);
-            } else {
-                setMode(STATE.LIVE);
-            }
-        };
-
-        // --- DATA ---
-        async function refreshMemories() {
-            try {
-                const r = await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/memories/database.json?t=${Date.now()}`);
+                const r = await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/database.json?t=${Date.now()}`);
                 memories = await r.json();
-                el.slider.max = memories.length; // +1 pro Live pozici
-            } catch(e) {}
+                ui.slider.max = memories.length;
+            } catch(e){}
         }
-        
-        // Hodiny
-        setInterval(() => {
+
+        function updateClock() {
             const now = new Date();
-            document.getElementById('displayTime').innerText = now.toLocaleTimeString('cs-CZ');
-            document.getElementById('displayDate').innerText = now.toLocaleDateString('cs-CZ');
-        }, 1000);
+            document.getElementById('timeDisplay').innerText = now.toLocaleTimeString('cs-CZ');
+            document.getElementById('dateDisplay').innerText = now.toLocaleDateString('cs-CZ');
+        }
 
     </script>
 </body>
