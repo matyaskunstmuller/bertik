@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v8.0 (Turbo Preload)</title>
+    <title>Bertik v9.0 (RAM Cache)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -27,11 +27,16 @@
             z-index: 1; background: #000; 
             object-fit: cover; transition: object-fit 0.3s;
         }
-        
+        /* Třídy pro plynulé přepínání viditelnosti bez vypnutí dekodéru */
+        .v-hidden { opacity: 0; pointer-events: none; }
+        .v-visible { opacity: 1; pointer-events: auto; }
+
         #liveVideo { transform: scaleX(-1); }
-        #playbackVideo { display: none; }
-        #chunkVideo { display: none; } 
-        #thumbPreview { display: none; object-fit: contain; background: #000; }
+        
+        /* Dva přehrávače pro časosběr (A/B rolling) */
+        #chunkA, #chunkB { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        #thumbPreview { display: none; object-fit: contain; background: #000; z-index: 2; }
 
         /* --- 2. VRSTVA: AVATAR (Uprostřed, Z-INDEX 10) --- */
         .center-stage { 
@@ -48,7 +53,6 @@
         #layerTongue { z-index: 30; opacity: 0; }
         #layerEars { z-index: 11; opacity: 0; }
 
-        /* Zdroje (skryté) */
         #srcMask, #srcPupils { display: none; }
 
         /* --- 3. UI (Nahoře, Z-INDEX 100) --- */
@@ -104,6 +108,8 @@
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
             font-size: 11px; display: none; z-index: 200; background: orange; color: black; padding: 4px 12px; border-radius: 20px; font-weight: bold;
         }
+        
+        #cacheStatus { font-size: 10px; color: #555; margin-top: 5px; }
 
         /* Úvod */
         #introLayer {
@@ -154,9 +160,12 @@
         <button id="startBtn" class="interactive">SPUSTIT</button>
     </div>
 
-    <video id="liveVideo" class="video-layer" autoplay muted playsinline></video>
-    <video id="playbackVideo" class="video-layer" playsinline></video>
-    <video id="chunkVideo" class="video-layer" playsinline></video>
+    <video id="liveVideo" class="video-layer v-hidden" autoplay muted playsinline></video>
+    <video id="playbackVideo" class="video-layer v-hidden" playsinline></video>
+    
+    <video id="chunkA" class="video-layer v-hidden" playsinline></video>
+    <video id="chunkB" class="video-layer v-hidden" playsinline></video>
+    
     <img id="thumbPreview" class="video-layer">
 
     <video id="srcMask" src="assets/eyes_alpha_channel.webm" loop muted playsinline style="display:none"></video>
@@ -190,7 +199,7 @@
                 <div class="stat-row">JAS <div class="bar-bg"><div id="bBri" class="bar-fill"></div></div></div>
                 <div class="stat-row">TEPLOTA <div class="bar-bg"><div id="bWarm" class="bar-fill"></div></div></div>
                 <div class="stat-row">BARVA <div class="color-dot" id="bCol"></div></div>
-            </div>
+                <div id="cacheStatus">CACHE: 0/0</div> </div>
         </div>
 
         <div class="bottom-left interactive">
@@ -224,6 +233,11 @@
         let camId, micId;
         let isCover = true; 
 
+        // Cache pro chunky
+        const chunkCache = new Map(); // Zde budou všechna videa v RAM
+        let totalChunks = 0;
+        const CHUNK_SIZE = 300;
+
         // Avatar
         let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
         let pupilX=0, pupilY=0, lastEyeUpdate=0, lastMouseMoveTime=Date.now();
@@ -233,11 +247,13 @@
         const el = {
             live: document.getElementById('liveVideo'),
             play: document.getElementById('playbackVideo'),
-            chunk: document.getElementById('chunkVideo'),
+            chunkA: document.getElementById('chunkA'),
+            chunkB: document.getElementById('chunkB'),
             thumb: document.getElementById('thumbPreview'),
             slider: document.getElementById('slider'),
             statsMenu: document.getElementById('statsMenu'),
             fitBtn: document.getElementById('fitToggleBtn'),
+            cacheTxt: document.getElementById('cacheStatus'),
             
             headS: document.getElementById('headSleep'),
             headB: document.getElementById('headBase'),
@@ -271,8 +287,8 @@
             srcMask.play(); srcPupils.play();
             await loadDB();
             
-            // PRELOAD START: Začneme stahovat chunky do paměti už při startu
-            preloadChunks(0);
+            // START MASS DOWNLOAD
+            downloadAllChunks();
             
             el.slider.value = el.slider.max; 
             document.getElementById('introLayer').classList.add('hidden');
@@ -286,14 +302,37 @@
             el.statsMenu.classList.toggle('visible');
         });
 
+        // --- MASS DOWNLOADER ---
+        async function downloadAllChunks() {
+            totalChunks = Math.ceil(memories.length / CHUNK_SIZE);
+            el.cacheTxt.innerText = `CACHE: 0/${totalChunks}`;
+            
+            for (let i = 0; i < totalChunks; i++) {
+                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${i}.webm`;
+                try {
+                    const r = await fetch(url);
+                    if (r.ok) {
+                        const blob = await r.blob();
+                        const blobUrl = URL.createObjectURL(blob);
+                        chunkCache.set(i, blobUrl);
+                        el.cacheTxt.innerText = `CACHE: ${i+1}/${totalChunks}`;
+                    }
+                } catch(e) { console.warn("Cache fail", i); }
+            }
+            el.cacheTxt.innerText = "CACHE: READY";
+            el.cacheTxt.style.color = "lime";
+        }
+
         // --- OVLÁDÁNÍ ---
+        
         el.fitBtn.addEventListener('click', () => {
             isCover = !isCover;
             const mode = isCover ? 'cover' : 'contain';
             el.fitBtn.innerText = isCover ? 'VYPLNIT' : 'CELÉ';
             el.live.style.objectFit = mode;
             el.play.style.objectFit = mode;
-            el.chunk.style.objectFit = mode;
+            el.chunkA.style.objectFit = mode;
+            el.chunkB.style.objectFit = mode;
             el.thumb.style.objectFit = mode;
         });
 
@@ -316,12 +355,12 @@
         async function setState(mode) {
             state = mode;
             
-            // Reset
-            el.live.style.display = 'none';
-            el.play.style.display = 'none';
-            el.chunk.style.display = 'none';
+            const show = (e) => { e.classList.remove('v-hidden'); e.classList.add('v-visible'); };
+            const hide = (e) => { e.classList.remove('v-visible'); e.classList.add('v-hidden'); };
+
+            hide(el.live); hide(el.play); hide(el.chunkA); hide(el.chunkB);
             el.thumb.style.display = 'none';
-            el.play.pause(); el.chunk.pause();
+            el.play.pause(); el.chunkA.pause(); el.chunkB.pause();
 
             el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
             el.btnTime.style.backgroundImage = (mode===STATE.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
@@ -336,7 +375,7 @@
             } else if (mode === STATE.LIVE) {
                 await initCam();
                 startRec(); startAnalysis();
-                el.live.style.display = 'block';
+                show(el.live);
                 el.headS.style.display = 'none';
                 el.headB.style.opacity=1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
                 el.headB.play(); el.ears.play();
@@ -345,16 +384,15 @@
 
             } else if (mode === STATE.PLAY) {
                 stopRec();
-                el.play.style.display = 'block';
+                show(el.play);
             
             } else if (mode === STATE.TIME) {
                 stopRec();
-                el.chunk.style.display = 'block';
                 runTimelapse();
             }
         }
 
-        // --- AVATAR (Fix Glitches) ---
+        // --- AVATAR ---
         document.addEventListener('mousemove', (e) => { 
             mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); 
         });
@@ -381,8 +419,7 @@
                 const W = el.eyes.width; const H = el.eyes.height;
                 ctxEyes.clearRect(0,0,W,H); 
                 
-                // Vykreslit oči jen pokud hlava je vidět (Opacity 1)
-                // Pokud mrkáme, el.headB.style.opacity bude 0, takže oči zmizí -> FIX
+                // OČI SE KRESLÍ JEN KDYŽ NEMRKÁ (Opacity 1)
                 if(srcMask.readyState>=2 && el.headB.style.opacity == 1) {
                     ctxEyes.globalCompositeOperation='source-over'; ctxEyes.drawImage(srcMask,0,0,W,H); 
                     ctxEyes.globalCompositeOperation='source-in'; ctxEyes.drawImage(srcPupils,pupilX,pupilY,W,H); 
@@ -394,18 +431,13 @@
 
         function triggerBlink() {
             if(state===STATE.OFF) return;
-            // SKRÝT OSTATNÍ NATVRDO
             el.headB.style.opacity=0; 
-            el.eyes.style.opacity=0; 
-            
-            el.blink.src = "assets/blink_anim.webm"; 
-            el.blink.style.opacity=1; 
-            el.blink.play();
-            
+            el.eyes.style.opacity=0; // Zmizí oči
+            el.blink.src = "assets/blink_anim.webm"; el.blink.style.opacity=1; el.blink.play();
             el.blink.onended = () => { 
                 el.blink.style.opacity=0; 
                 el.headB.style.opacity=1; 
-                el.eyes.style.opacity=1; 
+                el.eyes.style.opacity=1; // Objeví oči
             };
         }
         function triggerTongue() {
@@ -420,11 +452,12 @@
         el.slider.addEventListener('input', () => {
             if(state===STATE.OFF) return;
             if(state!==STATE.PLAY) setState(STATE.PLAY);
-            el.play.style.display='none'; el.thumb.style.display='block';
+            el.play.classList.remove('v-visible'); el.play.classList.add('v-hidden');
+            el.thumb.style.display='block';
             
             const idx = parseInt(el.slider.value);
             if(idx >= memories.length) {
-                el.thumb.style.display='none'; el.live.style.display='block';
+                el.thumb.style.display='none'; 
             } else {
                 const tIdx = Math.floor(idx/5)*5;
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg`;
@@ -438,7 +471,8 @@
         });
 
         async function playMem(idx) {
-            el.thumb.style.display='none'; el.play.style.display='block';
+            el.thumb.style.display='none';
+            el.play.classList.remove('v-hidden'); el.play.classList.add('v-visible');
             const mem = memories[idx];
             if(!mem) return;
             el.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
@@ -463,76 +497,61 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (BUFFERED) ---
+        // --- ČASOSBĚR (RAM CACHE) ---
         let chunkId = 0;
-        const CHUNK_SIZE = 300;
-        const chunkCache = new Map(); // Paměť pro videa
-
-        // Přednačíst první 3 chunky
-        async function preloadChunks(startIdx) {
-            for(let i=0; i<3; i++) {
-                const id = startIdx + i;
-                if(!chunkCache.has(id)) {
-                    fetchChunkBlob(id).then(blob => {
-                        if(blob) chunkCache.set(id, blob);
-                    });
-                }
-            }
-        }
-
-        async function fetchChunkBlob(id) {
-            const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${id}.webm`;
-            try {
-                const r = await fetch(url);
-                if(!r.ok) return null;
-                return await r.blob();
-            } catch(e) { return null; }
-        }
+        let activePlayer = 'A';
 
         async function runTimelapse() {
-            chunkId = 0;
-            preloadChunks(0); // Boost start
-            playNextChunk();
+            chunkId = 0; activePlayer = 'A';
+            playNextChunkRAM();
         }
 
-        async function playNextChunk() {
+        async function playNextChunkRAM() {
             if(state !== STATE.TIME) return;
 
-            // Zkusit vytáhnout z cache nebo stáhnout
-            let blob = chunkCache.get(chunkId);
-            if(!blob) {
-                blob = await fetchChunkBlob(chunkId);
-                if(!blob) { setState(STATE.LIVE); return; } // Konec
+            // Zkusíme vytáhnout z cache
+            let blobUrl = chunkCache.get(chunkId);
+            
+            // Pokud není staženo, zkusíme stáhnout hned (fallback)
+            if (!blobUrl) {
+                try {
+                    const r = await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`);
+                    if(r.ok) {
+                        const b = await r.blob();
+                        blobUrl = URL.createObjectURL(b);
+                        chunkCache.set(chunkId, blobUrl);
+                    } else { setState(STATE.LIVE); return; } // Konec
+                } catch(e) { setState(STATE.LIVE); return; }
             }
 
-            // Přehrát v hlavním přehrávači
-            if(el.chunk.src) URL.revokeObjectURL(el.chunk.src); // Vyčistit starou paměť
-            el.chunk.src = URL.createObjectURL(blob);
+            const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
+            const other = activePlayer === 'A' ? el.chunkB : el.chunkA;
             
-            try {
-                await el.chunk.play();
-                
-                // Preload dalšího (aby byl ready)
-                preloadChunks(chunkId + 1);
+            player.src = blobUrl;
+            
+            // Přepnout viditelnost
+            player.classList.remove('v-hidden'); player.classList.add('v-visible');
+            other.classList.remove('v-visible'); other.classList.add('v-hidden');
 
-                // UI Animace
-                const anim = setInterval(() => {
-                    if(state !== STATE.TIME || el.chunk.paused) { clearInterval(anim); return; }
-                    const p = el.chunk.currentTime / el.chunk.duration;
-                    el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
-                }, 200);
+            try { await player.play(); } catch(e) { setState(STATE.LIVE); return; }
 
-                el.chunk.onended = () => {
-                    clearInterval(anim);
-                    chunkId++;
-                    playNextChunk(); // Další
-                };
+            const anim = setInterval(() => {
+                if(state !== STATE.TIME || player.paused) { clearInterval(anim); return; }
+                const p = player.currentTime / (player.duration || 1);
+                el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
+            }, 200);
 
-            } catch(e) { setState(STATE.LIVE); }
+            player.onended = () => {
+                clearInterval(anim);
+                activePlayer = activePlayer === 'A' ? 'B' : 'A';
+                chunkId++;
+                playNextChunkRAM(); // Další z RAM
+            };
         }
 
         function stopTimelapseAndShow() {
-            const progress = el.chunk.currentTime / (el.chunk.duration || 1);
+            const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
+            const progress = player.currentTime / (player.duration || 1);
             const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
             
             setState(STATE.PLAY).then(() => {
@@ -598,12 +617,12 @@
             mediaRecorder.onstop=upload;
             mediaRecorder.start();
             
-            // INDIKACE Nahrávání (žlutá tečka v UI)
             document.getElementById('uploadInd').style.background = 'yellow';
             document.getElementById('uploadInd').innerText = 'REC';
             document.getElementById('uploadInd').style.display = 'block';
 
             clearInterval(recInterval);
+            // 15 Sekund pro rychlý upload
             recInterval=setInterval(()=>{if(mediaRecorder.state==='recording')mediaRecorder.stop();},15000);
         }
         function stopRec(){
@@ -615,7 +634,6 @@
         async function upload() {
             if(chunks.length===0||!octokit||state!==STATE.LIVE)return;
             
-            // Indikace Uploadu
             document.getElementById('uploadInd').style.background = 'orange';
             document.getElementById('uploadInd').innerText = 'UPLOADING...';
             
@@ -629,13 +647,10 @@
                     await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}',{
                         owner:REPO.owner,repo:REPO.name,path:`memories/${nm}`,message:'new',content:b64
                     });
-                    // Úspěch
-                    console.log("Uploaded:", nm);
                     memories.push({filename:nm,timestamp:Date.now()});
                     el.slider.max=memories.length;
                     if(state===STATE.LIVE)el.slider.value=memories.length;
                     
-                    // Zelené bliknutí
                     document.getElementById('uploadInd').style.background = 'lime';
                     document.getElementById('uploadInd').innerText = 'OK';
                     setTimeout(() => { 
@@ -646,8 +661,7 @@
                     }, 2000);
 
                 }catch(e){ console.error(e); }
-                
-                if(state===STATE.LIVE) mediaRecorder.start();
+                if(state===STATE.LIVE)mediaRecorder.start();
             };
         }
 
