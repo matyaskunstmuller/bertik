@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v7.0 (Memory Buffer)</title>
+    <title>Bertik v7.0 (Smooth Buffer)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
         body { 
             margin: 0; background: #000; color: #fff; 
             font-family: 'Montserrat', sans-serif; font-size: 14px;
-            overflow: hidden; user-select: none; -webkit-tap-highlight-color: transparent;
+            overflow: hidden; user-select: none;
         }
 
         /* --- 1. VRSTVA: VIDEA (Vespod, Z-INDEX 1) --- */
@@ -27,35 +27,39 @@
             z-index: 1; background: #000; 
             object-fit: cover; transition: object-fit 0.3s;
         }
+        .video-layer.contain { object-fit: contain; }
+
         #liveVideo { transform: scaleX(-1); }
         #playbackVideo { display: none; }
         
-        /* Dva přehrávače pro plynulý přechod */
-        #chunkA, #chunkB { display: none; } 
+        /* Přehrávač chunků */
+        #chunkPlayer { display: none; } 
         
         #thumbPreview { display: none; object-fit: contain; background: #000; }
 
-        /* --- 2. VRSTVA: AVATAR (Uprostřed, Z-INDEX 10) --- */
+        /* --- 2. VRSTVA: AVATAR (Uprostřed, Z-INDEX 50 - NAD VIDEEM) --- */
         .center-stage { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 80vh; height: 80vh; pointer-events: none; z-index: 10;
+            width: 80vh; height: 80vh; pointer-events: none; z-index: 50;
             display: flex; justify-content: center; align-items: center;
         }
         .char-part { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         
-        #headSleep { z-index: 20; display: block; }
-        #headBase { z-index: 12; opacity: 0; transition: opacity 0.1s; }
-        #eyesCanvas { z-index: 15; opacity: 0; transition: opacity 0.1s; }
-        #layerBlink { z-index: 25; opacity: 0; }
-        #layerTongue { z-index: 30; opacity: 0; }
-        #layerEars { z-index: 11; opacity: 0; }
+        #headSleep { z-index: 60; display: block; }
+        #headBase { z-index: 52; opacity: 0; transition: opacity 0.1s; }
+        #eyesCanvas { z-index: 55; opacity: 0; transition: opacity 0.1s; }
+        #layerBlink { z-index: 65; opacity: 0; }
+        #layerTongue { z-index: 70; opacity: 0; }
+        #layerEars { z-index: 51; opacity: 0; }
 
+        /* Skryté zdroje */
         #srcMask, #srcPupils { display: none; }
 
         /* --- 3. UI (Nahoře, Z-INDEX 100) --- */
         #uiLayer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
         .interactive { pointer-events: auto; cursor: pointer; }
 
+        /* Pravý horní roh */
         .top-right { 
             position: absolute; top: 30px; right: 30px; 
             display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
@@ -80,7 +84,9 @@
             background: transparent; border: 1px solid #aaa; color: #fff; 
             padding: 2px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; 
         }
+        .toggle-btn:hover { background: #fff; color: #000; }
 
+        /* Ovládání vlevo dole */
         .bottom-left { 
             position: absolute; bottom: 30px; left: 30px; right: 30px; 
             display: flex; flex-direction: column; gap: 20px; 
@@ -94,6 +100,7 @@
         }
         .big-btn:active { transform: scale(0.95); filter: brightness(0.8); }
 
+        /* Slider */
         .slider-wrapper { width: 100%; height: 30px; display: flex; align-items: center; }
         input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
@@ -101,6 +108,7 @@
             -webkit-appearance: none; height: 24px; width: 24px; background: #fff; border-radius: 50%; margin-top: -10px; box-shadow: 0 0 10px rgba(0,0,0,0.8);
         }
 
+        /* Loading */
         #uploadInd { 
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
             font-size: 11px; display: none; z-index: 200; background: orange; color: black; padding: 4px 12px; border-radius: 20px; font-weight: bold;
@@ -157,10 +165,7 @@
 
     <video id="liveVideo" class="video-layer" autoplay muted playsinline></video>
     <video id="playbackVideo" class="video-layer" playsinline></video>
-    
-    <video id="chunkA" class="video-layer" playsinline></video>
-    <video id="chunkB" class="video-layer" playsinline></video>
-    
+    <video id="chunkPlayer" class="video-layer" playsinline></video>
     <img id="thumbPreview" class="video-layer">
 
     <video id="srcMask" src="assets/eyes_alpha_channel.webm" loop muted playsinline style="display:none"></video>
@@ -214,11 +219,11 @@
     <script>
         // --- CONFIG ---
         const CAST_1 = "ghp_"; 
-        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! ZMĚNIT TOKEN !!!
+        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! DOPLNIT !!!
         const TOKEN = CAST_1 + CAST_2;
         const REPO = { owner: "matyaskunstmuller", name: "bertik" };
 
-        // --- VARS ---
+        // --- STAVY ---
         const STATE = { OFF: 0, LIVE: 1, PLAY: 2, TIME: 3 };
         let state = STATE.OFF;
         
@@ -226,7 +231,6 @@
         let memories = [];
         let recInterval, analysisInterval;
         let camId, micId;
-        
         let isCover = true; 
 
         // Avatar
@@ -238,8 +242,7 @@
         const el = {
             live: document.getElementById('liveVideo'),
             play: document.getElementById('playbackVideo'),
-            chunkA: document.getElementById('chunkA'),
-            chunkB: document.getElementById('chunkB'),
+            chunk: document.getElementById('chunkPlayer'),
             thumb: document.getElementById('thumbPreview'),
             slider: document.getElementById('slider'),
             statsMenu: document.getElementById('statsMenu'),
@@ -283,7 +286,6 @@
         document.getElementById('settingsIcon').addEventListener('click', () => {
             document.getElementById('introLayer').classList.remove('hidden');
         });
-        
         document.getElementById('statsToggle').addEventListener('click', () => {
             el.statsMenu.classList.toggle('visible');
         });
@@ -294,11 +296,10 @@
             isCover = !isCover;
             const mode = isCover ? 'cover' : 'contain';
             el.fitBtn.innerText = isCover ? 'VYPLNIT' : 'CELÉ';
-            el.live.style.objectFit = mode;
-            el.play.style.objectFit = mode;
-            el.chunkA.style.objectFit = mode;
-            el.chunkB.style.objectFit = mode;
-            el.thumb.style.objectFit = mode;
+            el.live.className = `video-layer ${mode === 'contain' ? 'contain' : ''}`;
+            el.play.className = `video-layer ${mode === 'contain' ? 'contain' : ''}`;
+            el.chunk.className = `video-layer ${mode === 'contain' ? 'contain' : ''}`;
+            el.thumb.className = `video-layer ${mode === 'contain' ? 'contain' : ''}`;
         });
 
         el.btnPwr.addEventListener('click', () => {
@@ -308,7 +309,7 @@
 
         el.btnTime.addEventListener('click', () => {
             if (state === STATE.OFF) return;
-            if (state === STATE.TIME) stopTimelapseAndShow();
+            if (state === STATE.TIME) stopTimelapse();
             else setState(STATE.TIME);
         });
 
@@ -316,48 +317,61 @@
             if (state !== STATE.OFF) findSimilar();
         });
 
-        // --- STAVY ---
+        // --- LOGIKA STAVŮ ---
         async function setState(mode) {
             state = mode;
-            // Skrýt vše
+            
+            // 1. Zastavit vše
             el.live.style.display = 'none';
             el.play.style.display = 'none';
-            el.chunkA.style.display = 'none';
-            el.chunkB.style.display = 'none';
+            el.chunk.style.display = 'none';
             el.thumb.style.display = 'none';
-            el.play.pause(); el.chunkA.pause(); el.chunkB.pause();
+            el.play.pause(); el.chunk.pause();
 
+            // 2. Grafika tlačítek
             el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
             el.btnTime.style.backgroundImage = (mode===STATE.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
 
+            // 3. Akce podle stavu
             if (mode === STATE.OFF) {
+                killCamera(); // Úplně vypnout kameru
                 stopRec(); stopAnalysis();
                 el.headS.style.display = 'block';
-                el.headB.style.opacity=0; el.eyes.style.opacity=0; el.ears.style.opacity=0;
+                el.headB.style.opacity = 0; el.eyes.style.opacity=0; el.ears.style.opacity=0;
                 el.slider.disabled = true;
-                if(el.live.srcObject) el.live.srcObject.getTracks().forEach(t=>t.stop());
 
             } else if (mode === STATE.LIVE) {
-                await initCam();
+                await initCam(); // Zapnout kameru
                 startRec(); startAnalysis();
                 el.live.style.display = 'block';
+                
                 el.headS.style.display = 'none';
-                el.headB.style.opacity=1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
+                el.headB.style.opacity = 1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
                 el.headB.play(); el.ears.play();
                 el.slider.disabled = false;
                 el.slider.value = memories.length;
 
             } else if (mode === STATE.PLAY) {
+                killCamera(); // Vypnout kameru pro výkon
                 stopRec();
                 el.play.style.display = 'block';
             
             } else if (mode === STATE.TIME) {
+                killCamera(); // Vypnout kameru pro výkon
                 stopRec();
+                el.chunk.style.display = 'block';
                 runTimelapse();
             }
         }
 
-        // --- AVATAR (Original) ---
+        function killCamera() {
+            if(el.live.srcObject) {
+                el.live.srcObject.getTracks().forEach(t => t.stop());
+                el.live.srcObject = null;
+            }
+        }
+
+        // --- AVATAR ---
         document.addEventListener('mousemove', (e) => { 
             mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); 
         });
@@ -415,6 +429,7 @@
             const idx = parseInt(el.slider.value);
             if(idx >= memories.length) {
                 el.thumb.style.display='none'; el.live.style.display='block';
+                if(!el.live.srcObject) initCam(); // Náhled Live
             } else {
                 const tIdx = Math.floor(idx/5)*5;
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg`;
@@ -453,73 +468,56 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (PRELOADING FIX) ---
+        // --- ČASOSBĚR (BUFFERED) ---
         let chunkId = 0;
-        let activePlayer = 'A';
         const CHUNK_SIZE = 300;
-        let nextChunkBlob = null; // Buffer v paměti
+        let chunkBlob = null; // Buffer v paměti
 
         async function runTimelapse() {
             chunkId = 0;
-            activePlayer = 'A';
-            playNextChunk(0); // Start
+            playNextChunk();
         }
 
-        async function playNextChunk(id) {
+        async function playNextChunk() {
             if(state !== STATE.TIME) return;
 
-            // 1. Získat Blob (pokud nemáme preload)
-            let blob = nextChunkBlob;
-            if(!blob) {
-                blob = await fetchChunkBlob(id);
-                if(!blob) { setState(STATE.LIVE); return; } // Konec
-            }
-            nextChunkBlob = null; // Vyprázdnit buffer
-
-            // 2. Nastavit aktivní přehrávač
-            const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
-            const other = activePlayer === 'A' ? el.chunkB : el.chunkA;
+            // 1. Zjistit URL
+            const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
             
-            player.src = URL.createObjectURL(blob);
-            player.style.display = 'block';
-            other.style.display = 'none';
+            // 2. Zkontrolovat existenci (Head)
+            const exists = await fetch(url, {method:'HEAD'}).then(r=>r.ok).catch(()=>false);
+            if(!exists) { setState(STATE.LIVE); return; } // Konec
 
-            // 3. Pustit
-            try { await player.play(); } catch(e) { setState(STATE.LIVE); return; }
-
-            // 4. Preload dalšího
-            fetchChunkBlob(id + 1).then(b => nextChunkBlob = b);
-
-            // 5. UI Slider update
-            const anim = setInterval(() => {
-                if(state !== STATE.TIME || player.paused) { clearInterval(anim); return; }
-                const p = player.currentTime / (player.duration || 1);
-                el.slider.value = (id * CHUNK_SIZE) + (p * CHUNK_SIZE);
-            }, 200);
-
-            // 6. Loop
-            player.onended = () => {
-                clearInterval(anim);
-                activePlayer = activePlayer === 'A' ? 'B' : 'A';
-                chunkId++;
-                playNextChunk(chunkId);
-            };
-        }
-
-        async function fetchChunkBlob(id) {
-            const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${id}.webm`;
+            // 3. Stáhnout Blob (Bufferování)
+            // Zobrazíme loading nebo prostě pauzu, pokud trvá
             try {
                 const r = await fetch(url);
-                if(!r.ok) return null;
-                return await r.blob();
-            } catch(e) { return null; }
+                const blob = await r.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                el.chunk.src = blobUrl;
+                el.chunk.play();
+                
+                // Slider Animace
+                const anim = setInterval(() => {
+                    if(state !== STATE.TIME || el.chunk.paused) { clearInterval(anim); return; }
+                    const p = el.chunk.currentTime / (el.chunk.duration || 1);
+                    el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
+                }, 200);
+
+                el.chunk.onended = () => {
+                    clearInterval(anim);
+                    chunkId++;
+                    playNextChunk(); // Rekurze na další
+                };
+
+            } catch(e) { setState(STATE.LIVE); }
         }
 
-        function stopTimelapseAndShow() {
-            // Najít kde jsme
-            const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
-            const progress = player.currentTime / (player.duration || 1);
-            const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
+        function stopTimelapse() {
+            // Kam skočit?
+            const p = el.chunk.currentTime / (el.chunk.duration || 1);
+            const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE));
             
             if(realIdx < memories.length) {
                 el.slider.value = realIdx;
