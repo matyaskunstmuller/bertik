@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v7.0 (Memory Buffer)</title>
+    <title>Bertik v7.1 (Timelapse Fix)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -308,7 +308,7 @@
 
         el.btnTime.addEventListener('click', () => {
             if (state === STATE.OFF) return;
-            if (state === STATE.TIME) stopTimelapseAndShow();
+            if (state === STATE.TIME) stopTimelapseAndShow(); // <-- TADY JE TA OPRAVA
             else setState(STATE.TIME);
         });
 
@@ -453,30 +453,28 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (PRELOADING FIX) ---
+        // --- ČASOSBĚR (OPRAVA ZASTAVENÍ) ---
         let chunkId = 0;
         let activePlayer = 'A';
         const CHUNK_SIZE = 300;
-        let nextChunkBlob = null; // Buffer v paměti
+        let nextChunkBlob = null;
 
         async function runTimelapse() {
             chunkId = 0;
             activePlayer = 'A';
-            playNextChunk(0); // Start
+            playNextChunk(0);
         }
 
         async function playNextChunk(id) {
-            if(state !== STATE.TIME) return;
+            if(state !== STATE.TIME) return; // Kontrola zda má běžet
 
-            // 1. Získat Blob (pokud nemáme preload)
             let blob = nextChunkBlob;
             if(!blob) {
                 blob = await fetchChunkBlob(id);
-                if(!blob) { setState(STATE.LIVE); return; } // Konec
+                if(!blob) { setState(STATE.LIVE); return; }
             }
-            nextChunkBlob = null; // Vyprázdnit buffer
+            nextChunkBlob = null;
 
-            // 2. Nastavit aktivní přehrávač
             const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
             const other = activePlayer === 'A' ? el.chunkB : el.chunkA;
             
@@ -484,20 +482,16 @@
             player.style.display = 'block';
             other.style.display = 'none';
 
-            // 3. Pustit
             try { await player.play(); } catch(e) { setState(STATE.LIVE); return; }
 
-            // 4. Preload dalšího
             fetchChunkBlob(id + 1).then(b => nextChunkBlob = b);
 
-            // 5. UI Slider update
             const anim = setInterval(() => {
                 if(state !== STATE.TIME || player.paused) { clearInterval(anim); return; }
                 const p = player.currentTime / (player.duration || 1);
                 el.slider.value = (id * CHUNK_SIZE) + (p * CHUNK_SIZE);
             }, 200);
 
-            // 6. Loop
             player.onended = () => {
                 clearInterval(anim);
                 activePlayer = activePlayer === 'A' ? 'B' : 'A';
@@ -516,15 +510,20 @@
         }
 
         function stopTimelapseAndShow() {
-            // Najít kde jsme
             const player = activePlayer === 'A' ? el.chunkA : el.chunkB;
             const progress = player.currentTime / (player.duration || 1);
             const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
             
-            if(realIdx < memories.length) {
-                el.slider.value = realIdx;
-                playMem(realIdx);
-            } else setState(STATE.LIVE);
+            // 1. NEJDŘÍV ZMĚNIT STAV (zastaví smyčku)
+            setState(STATE.PLAY).then(() => {
+                // 2. POTOM PUSTIT VIDEO
+                if(realIdx < memories.length) {
+                    el.slider.value = realIdx;
+                    playMem(realIdx);
+                } else {
+                    setState(STATE.LIVE);
+                }
+            });
         }
 
         // --- HW ---
