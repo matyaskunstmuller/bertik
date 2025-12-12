@@ -7,7 +7,7 @@ const CHUNK_DIR = 'memories/chunks';
 const THUMB_DIR = 'memories/thumbs';
 const DB_PATH = 'memories/database.json';
 
-// VRÁCENO NA 300 (Původní délka)
+// Délka 300 snímků @ 30 FPS = 10 sekund videa
 const CHUNK_SIZE = 300; 
 
 if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
@@ -36,7 +36,7 @@ db.forEach((mem, index) => {
     }
 });
 
-// 3. CHUNKY (VP9 - NO AUDIO)
+// 3. CHUNKY (RE-TIMING FIX)
 const totalChunks = Math.floor(db.length / CHUNK_SIZE);
 for (let i = 0; i < totalChunks; i++) {
     const chunkName = `chunk_${i}.webm`;
@@ -53,7 +53,7 @@ for (let i = 0; i < totalChunks; i++) {
             let count = 0;
             slice.forEach((mem, idx) => {
                 const vPath = path.join(MEM_DIR, mem.filename);
-                const iPath = path.join(tempDir, `img_${String(idx).padStart(3, '0')}.jpg`);
+                const iPath = path.join(tempDir, `img_${String(idx).padStart(4, '0')}.jpg`);
                 try {
                     execSync(`ffmpeg -ss 0.0 -i "${vPath}" -vframes 1 -q:v 2 "${iPath}" -y`, { stdio: 'ignore' });
                     count++;
@@ -61,8 +61,9 @@ for (let i = 0; i < totalChunks; i++) {
             });
 
             if(count > 0) {
-                // FIX: -an (odstraní audio stopu), -row-mt 1 (multithreading)
-                execSync(`ffmpeg -framerate 60 -i ${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 3M -an -row-mt 1 -pix_fmt yuv420p "${chunkPath}"`);
+                // ZMĚNA: Filtr setpts=N/30/TB opravuje časování pro D3D11
+                // -b:v 2M (bitrate), -bufsize 4M (buffer) - prevence underflow
+                execSync(`ffmpeg -framerate 30 -i ${tempDir}/img_%04d.jpg -c:v libvpx-vp9 -b:v 2M -minrate 1M -maxrate 3M -bufsize 4M -vf "setpts=N/30/TB,format=yuv420p" -an -r 30 -g 30 -row-mt 1 "${chunkPath}"`);
                 console.log("Chunk hotov.");
             }
         } catch (e) { console.error(e.message); }
