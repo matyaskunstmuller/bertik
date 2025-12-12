@@ -1,12 +1,13 @@
-name: Bertik Brain (ORIGINAL AUTOMATION)
+name: Bertik Brain (Thumbnails & Chunks)
 
 on:
   push:
     paths:
-      - 'memories/**' # SPUSTÍ SE VŽDY, KDYŽ PŘIBUDE SOUBOR VE SLOŽCE
+      - 'memories/**'
+  workflow_dispatch:
 
 jobs:
-  process-memories:
+  optimize-system:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -25,7 +26,7 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Run Processing Logic
+    - name: Run Optimization Script
       run: |
         cat <<EOF > script.js
         const fs = require('fs');
@@ -34,31 +35,48 @@ jobs:
 
         const MEM_DIR = 'memories';
         const CHUNK_DIR = 'memories/chunks';
+        const THUMB_DIR = 'memories/thumbs';
         const DB_PATH = 'memories/database.json';
         const CHUNK_SIZE = 300; 
 
         if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
+        if (!fs.existsSync(THUMB_DIR)) fs.mkdirSync(THUMB_DIR, { recursive: true });
 
-        // 1. DATA MINING (Přečíst co je na disku)
-        // Tohle ignoruje starou databázi a vytvoří čerstvou podle reality
+        // 1. NAČÍST VŠECHNY SOUBORY
         const files = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
-        console.log(\`Nalezeno \${files.length} videí.\`);
+        console.log(\`Zpracovávám \${files.length} videí...\`);
 
+        // 2. AKTUALIZACE DATABÁZE
         const db = files.map(filename => {
             const timestamp = parseInt(filename.split('_')[1]) || Date.now();
             return {
                 filename: filename,
                 timestamp: timestamp,
+                // Náhodné statistiky (v budoucnu lze nahradit reálnou analýzou)
                 stats: { volume: 50, color: '#888888', motion: 50, brightness: 50, warmth: 50 }
             };
         });
-
-        // Seřadit
         db.sort((a,b) => a.timestamp - b.timestamp);
         fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-        console.log("Databáze aktualizována.");
 
-        // 2. CHUNK FACTORY
+        // 3. GENERÁTOR NÁHLEDŮ (Každá 5. vzpomínka)
+        console.log("Kontrola náhledů...");
+        db.forEach((mem, index) => {
+            if (index % 5 === 0) { // Jen každá pátá
+                const thumbName = \`thumb_\${index}.jpg\`;
+                const thumbPath = path.join(THUMB_DIR, thumbName);
+                const vidPath = path.join(MEM_DIR, mem.filename);
+                
+                if (!fs.existsSync(thumbPath)) {
+                    try {
+                        // Vygenerovat malý obrázek (šířka 160px) pro rychlé načítání
+                        execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -vf scale=160:-1 -q:v 10 "\${thumbPath}" -y\`, { stdio: 'ignore' });
+                    } catch (e) {}
+                }
+            }
+        });
+
+        // 4. GENERÁTOR CHUNKŮ (Pro časosběr)
         const totalChunks = Math.floor(db.length / CHUNK_SIZE);
         for (let i = 0; i < totalChunks; i++) {
             const chunkName = \`chunk_\${i}.webm\`;
@@ -67,27 +85,26 @@ jobs:
             if (!fs.existsSync(chunkPath)) {
                 console.log(\`Generuji \${chunkName}...\`);
                 const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                const tempDir = \`temp_img_\${i}\`;
-                
+                const tempDir = \`temp_chunk_\${i}\`;
                 if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
                 fs.mkdirSync(tempDir);
 
                 try {
-                    // Extrakce
-                    slice.forEach((mem, index) => {
-                        const vidPath = path.join(MEM_DIR, mem.filename);
-                        const imgName = \`img_\${String(index).padStart(3, '0')}.jpg\`; 
-                        const imgPath = path.join(tempDir, imgName);
+                    let count = 0;
+                    slice.forEach((mem, idx) => {
+                        const vPath = path.join(MEM_DIR, mem.filename);
+                        const iPath = path.join(tempDir, \`img_\${String(idx).padStart(3, '0')}.jpg\`);
                         try {
-                            execSync(\`ffmpeg -ss 0.0 -i "\${vidPath}" -vframes 1 -q:v 15 "\${imgPath}" -y\`, { stdio: 'ignore' });
-                        } catch (e) {}
+                            execSync(\`ffmpeg -ss 0.0 -i "\${vPath}" -vframes 1 -q:v 5 "\${iPath}" -y\`, { stdio: 'ignore' });
+                            count++;
+                        } catch(e){}
                     });
 
-                    // Render
-                    execSync(\`ffmpeg -framerate 60 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 1M -speed 8 -pix_fmt yuv420p "\${chunkPath}"\`);
-                    console.log(\`Chunk \${i} hotov.\`);
+                    if(count > 0) {
+                        // Generujeme plynulé video (30 FPS)
+                        execSync(\`ffmpeg -framerate 30 -i \${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 800k -speed 8 -pix_fmt yuv420p "\${chunkPath}"\`);
+                    }
                 } catch (e) { console.error(e); }
-                
                 try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch(e) {}
             }
         }
@@ -95,16 +112,13 @@ jobs:
         
         node script.js
 
-    - name: Commit and Push
+    - name: Deploy Changes
       run: |
         git config --global user.name 'Bertik Bot'
         git config --global user.email 'bot@bertik.ai'
-        
         git add memories/database.json
+        git add memories/thumbs/*.jpg
         git add memories/chunks/*.webm
-        
-        git commit -m "Auto-update DB and Chunks" || echo "No changes"
-        
-        # Ochrana: Stáhnout změny před odesláním (aby to nespadlo na křížek)
+        git commit -m "System Optimization" || echo "No changes"
         git pull --rebase origin main
         git push origin main
