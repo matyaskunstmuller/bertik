@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v16 (Lag Killer)</title>
+    <title>Bertik v17 (Full Features)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -37,15 +37,12 @@
         
         #headSleep { z-index: 20; display: block; }
         #headBase { z-index: 12; opacity: 0; transition: opacity 0.1s; }
-        
-        /* TĚŽKÉ VRSTVY - DOČASNĚ VYPNUTÉ PRO TEST VÝKONU */
-        /* #eyesCanvas, #layerBlink, #layerTongue { display: none !important; } */
-        
         #eyesCanvas { z-index: 15; opacity: 0; transition: opacity 0.1s; }
         #layerBlink { z-index: 25; opacity: 0; }
         #layerTongue { z-index: 30; opacity: 0; }
         #layerEars { z-index: 11; opacity: 0; }
 
+        /* Zdroje očí (Skryté, ale hrají) */
         #srcMask, #srcPupils { display: none; }
 
         /* 3. UI (Z-INDEX 100) */
@@ -111,8 +108,8 @@
     <div id="videoContainer">
         <video id="liveVideo" class="video-layer hidden" autoplay muted playsinline></video>
         <video id="playbackVideo" class="video-layer hidden" playsinline muted></video>
-        <video id="chunkA" class="video-layer hidden" playsinline muted></video>
-        <video id="chunkB" class="video-layer hidden" playsinline muted></video>
+        <video id="chunkVideo" class="video-layer hidden" playsinline muted></video>
+        <video id="preloadVideo" style="display:none;" muted playsinline></video> 
         <img id="thumbPreview" class="video-layer hidden">
     </div>
 
@@ -123,8 +120,7 @@
         <img id="headSleep" class="char-part" src="assets/head_sleep.png">
         <video id="layerEars" class="char-part" src="assets/ears_active.webm" loop muted playsinline></video>
         <video id="headBase" class="char-part" src="assets/head_idle.webm" loop muted playsinline></video>
-        
-        <canvas id="eyesCanvas" class="char-part" width="512" height="512"></canvas> 
+        <canvas id="eyesCanvas" class="char-part" width="512" height="512"></canvas>
         <video id="layerBlink" class="char-part" src="" muted playsinline></video>
         <video id="layerTongue" class="char-part" src="" muted playsinline></video>
     </div>
@@ -188,8 +184,8 @@
         const el = {
             live: document.getElementById('liveVideo'),
             play: document.getElementById('playbackVideo'),
-            chunkA: document.getElementById('chunkA'),
-            chunkB: document.getElementById('chunkB'),
+            chunk: document.getElementById('chunkVideo'),
+            preload: document.getElementById('preloadVideo'),
             thumb: document.getElementById('thumbPreview'),
             slider: document.getElementById('slider'),
             statsMenu: document.getElementById('statsMenu'),
@@ -216,16 +212,15 @@
             if(window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
             loadDevices();
             setInterval(updateClock, 1000);
-            
-            // Dočasně vypnuto vykreslování očí pro test výkonu
-            // renderAvatarLoop(); 
+            renderAvatarLoop();
         });
 
         document.getElementById('startBtn').addEventListener('click', async () => {
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
             
-            // srcMask.play(); srcPupils.play(); // Vypnuto pro test
+            // Oči zapnout
+            srcMask.play(); srcPupils.play(); 
             
             await loadDB();
             downloadAllChunks();
@@ -264,9 +259,9 @@
             const show = (e) => { e.classList.remove('hidden'); e.classList.add('visible'); };
             const hide = (e) => { e.classList.remove('visible'); e.classList.add('hidden'); };
 
-            hide(el.live); hide(el.play); hide(el.chunkA); hide(el.chunkB);
+            hide(el.live); hide(el.play); hide(el.chunk);
             el.thumb.style.display = 'none';
-            el.play.pause(); el.chunkA.pause(); el.chunkB.pause();
+            el.play.pause(); el.chunk.pause();
 
             el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
             el.btnTime.style.backgroundImage = (mode===STATE.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
@@ -283,9 +278,7 @@
                 startRec(); startAnalysis();
                 show(el.live);
                 el.headS.style.display = 'none';
-                el.headB.style.opacity=1; 
-                // el.eyes.style.opacity=1; // Vypnuto pro test
-                el.ears.style.opacity=1;
+                el.headB.style.opacity=1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
                 el.headB.play(); el.ears.play();
                 el.slider.disabled = false;
                 el.slider.value = memories.length;
@@ -300,22 +293,55 @@
             }
         }
 
-        // --- AVATAR ---
+        // --- AVATAR (OČI ZAPNUTÉ) ---
         document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
 
-        /*
         function renderAvatarLoop() {
-            // ... TĚŽKÁ LOGIKA OČÍ VYPNUTA PRO TEST ...
+            if(state !== STATE.OFF) {
+                const now = Date.now();
+                if (now - lastEyeUpdate > (1000/12)) {
+                    let tx, ty;
+                    if (now - lastMouseMoveTime > 3000) {
+                        if (now > roamTargetTime) {
+                            roamX = (Math.random()-0.5)*200; roamY = (Math.random()-0.5)*100;
+                            roamTargetTime = now + 2000 + Math.random()*500;
+                        }
+                        tx = pupilX + (roamX - pupilX)*0.3; ty = pupilY + (roamY - pupilY)*0.3;
+                    } else {
+                        const cx = window.innerWidth/2; const cy = window.innerHeight/2;
+                        tx = ((mouseX-cx)/25)*6.5; ty = ((mouseY-cy)/25)*6.5;
+                    }
+                    pupilX = Math.max(-150, Math.min(150, tx));
+                    pupilY = Math.max(-150, Math.min(150, ty));
+                    lastEyeUpdate = now;
+                }
+                
+                // Canvas 512x512
+                const W = el.eyes.width; const H = el.eyes.height;
+                ctxEyes.clearRect(0,0,W,H); 
+                
+                if(srcMask.readyState>=2 && el.headB.style.opacity == 1) {
+                    ctxEyes.globalCompositeOperation='source-over'; ctxEyes.drawImage(srcMask,0,0,W,H); 
+                    ctxEyes.globalCompositeOperation='source-in'; ctxEyes.drawImage(srcPupils,pupilX,pupilY,W,H); 
+                    ctxEyes.globalCompositeOperation='source-over';
+                }
+            }
+            requestAnimationFrame(renderAvatarLoop);
         }
-        */
 
         function triggerBlink() {
-            // Vypnuto pro test
+            if(state===STATE.OFF) return;
+            el.headB.style.opacity=0; el.eyes.style.opacity=0; 
+            el.blink.src = "assets/blink_anim.webm"; el.blink.style.opacity=1; el.blink.play();
+            el.blink.onended = () => { el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
         }
         function triggerTongue() {
-            // Vypnuto pro test
+            if(state===STATE.OFF) return;
+            el.headB.style.opacity=0; el.eyes.style.opacity=0;
+            el.tongue.src = "assets/tongue_action.webm"; el.tongue.style.opacity=1; el.tongue.play();
+            el.tongue.onended = () => { el.tongue.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
         }
-        // setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
+        setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
 
         // --- PŘEHRÁVÁNÍ ---
         el.slider.addEventListener('input', () => {
@@ -361,11 +387,10 @@
                 if(diff<min){min=diff; best=i;}
             });
             if(best===0) best=Math.floor(Math.random()*(memories.length-1));
-            el.slider.value=best; playMem(best); 
-            // triggerTongue(); // Vypnuto
+            el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (CACHED) ---
+        // --- ČASOSBĚR (BUFFERED) ---
         async function downloadAllChunks() {
             totalChunks = Math.ceil(memories.length / CHUNK_SIZE);
             el.cacheTxt.innerText = `CACHE: 0/${totalChunks}`;
@@ -386,53 +411,49 @@
         }
 
         let chunkId = 0;
-        let activePlayerStr = 'A';
 
         async function runTimelapse() {
-            chunkId = 0; activePlayerStr = 'A';
-            playTimelapseStep();
+            chunkId = 0; 
+            playNextChunk();
         }
 
-        async function playTimelapseStep() {
+        async function playNextChunk() {
             if(state !== STATE.TIME) return;
 
-            const curr = activePlayerStr === 'A' ? el.chunkA : el.chunkB;
-            const next = activePlayerStr === 'A' ? el.chunkB : el.chunkA;
-
             let src = chunkCache.get(chunkId);
+            // Fallback (kdyby cache ještě nebyla hotová)
             if(!src) src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
             
-            curr.src = src;
-            curr.classList.remove('hidden'); curr.classList.add('visible');
-            next.classList.remove('visible'); next.classList.add('hidden');
+            el.chunk.src = src;
+            el.chunk.classList.remove('hidden'); el.chunk.classList.add('visible');
+            
+            // Preload dalšího (jen pro jistotu)
+            if(chunkCache.get(chunkId+1)) {
+                el.preload.src = chunkCache.get(chunkId+1); 
+            }
 
-            try { await curr.play(); } catch(e) { setState(STATE.LIVE); return; }
-
-            let nextSrc = chunkCache.get(chunkId + 1);
-            if(!nextSrc && (chunkId+1) < totalChunks) nextSrc = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId+1}.webm`;
-            if (nextSrc) { next.src = nextSrc; next.load(); }
+            try { await el.chunk.play(); } catch(e) { setState(STATE.LIVE); return; }
 
             const anim = setInterval(() => {
-                if(state !== STATE.TIME || curr.paused) { clearInterval(anim); return; }
-                const p = curr.currentTime / (curr.duration || 1);
+                if(state !== STATE.TIME || el.chunk.paused) { clearInterval(anim); return; }
+                const p = el.chunk.currentTime / (el.chunk.duration || 1);
                 el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
             }, 100);
 
-            curr.onended = () => {
+            el.chunk.onended = () => {
                 clearInterval(anim);
-                activePlayerStr = activePlayerStr === 'A' ? 'B' : 'A';
                 chunkId++;
-                if(chunkId < totalChunks) playTimelapseStep();
+                if(chunkId < totalChunks) playNextChunk();
                 else setState(STATE.LIVE);
             };
             
-            curr.onerror = () => { setState(STATE.LIVE); };
+            el.chunk.onerror = () => { setState(STATE.LIVE); };
         }
 
         function stopTimelapseAndShow() {
-            const curr = activePlayerStr === 'A' ? el.chunkA : el.chunkB;
-            const progress = curr.currentTime / (curr.duration || 1);
+            const progress = el.chunk.currentTime / (el.chunk.duration || 1);
             const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
+            
             setState(STATE.PLAY).then(() => {
                 if(realIdx < memories.length) {
                     el.slider.value = realIdx;
