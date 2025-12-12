@@ -308,9 +308,9 @@
             el.cacheTxt.innerText = `CACHE: 0/${totalChunks}`;
             
             for (let i = 0; i < totalChunks; i++) {
-                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${i}.webm`;
+                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${i}.mp4`;
                 try {
-                    const r = await fetch(url);
+                    const r = await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.mp4`);
                     if (r.ok) {
                         const blob = await r.blob();
                         const blobUrl = URL.createObjectURL(blob);
