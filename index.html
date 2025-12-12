@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik Final (Clean Core)</title>
+    <title>Bertik v7.6 (Performance Snap)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -106,9 +106,9 @@
 
     <div id="videoContainer">
         <video id="liveVideo" class="video-layer hidden" autoplay muted playsinline></video>
-        <video id="playbackVideo" class="video-layer hidden" playsinline></video>
-        <video id="chunkA" class="video-layer hidden" playsinline></video>
-        <video id="chunkB" class="video-layer hidden" playsinline></video>
+        <video id="playbackVideo" class="video-layer hidden" playsinline muted></video>
+        <video id="chunkA" class="video-layer hidden" playsinline muted></video>
+        <video id="chunkB" class="video-layer hidden" playsinline muted></video>
         <img id="thumbPreview" class="video-layer hidden">
     </div>
 
@@ -216,7 +216,7 @@
         document.getElementById('startBtn').addEventListener('click', async () => {
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
-            srcMask.play(); srcPupils.play(); // Fix očí
+            srcMask.play(); srcPupils.play();
             await loadDB();
             downloadAllChunks();
             el.slider.value = el.slider.max; 
@@ -405,6 +405,7 @@
 
         let chunkId = 0;
         let activePlayerStr = 'A';
+        let animationFrameId; // Pro plynulý slider
 
         async function runTimelapse() {
             chunkId = 0; activePlayerStr = 'A';
@@ -430,14 +431,18 @@
             if(!nextSrc && (chunkId+1) < totalChunks) nextSrc = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId+1}.webm`;
             if (nextSrc) { next.src = nextSrc; next.load(); }
 
-            const anim = setInterval(() => {
-                if(state !== STATE.TIME || curr.paused) { clearInterval(anim); return; }
+            // OPTIMALIZOVANÝ SLIDER (RequestAnimationFrame)
+            const updateSlider = () => {
+                if(state !== STATE.TIME || curr.paused) return;
                 const p = curr.currentTime / (curr.duration || 1);
                 el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
-            }, 100);
+                animationFrameId = requestAnimationFrame(updateSlider);
+            };
+            cancelAnimationFrame(animationFrameId);
+            updateSlider();
 
             curr.onended = () => {
-                clearInterval(anim);
+                cancelAnimationFrame(animationFrameId);
                 activePlayerStr = activePlayerStr === 'A' ? 'B' : 'A';
                 chunkId++;
                 if(chunkId < totalChunks) playTimelapseStep();
@@ -447,15 +452,19 @@
             curr.onerror = () => { setState(STATE.LIVE); };
         }
 
+        // OPRAVA ZASTAVOVÁNÍ (SNAP)
         function stopTimelapseAndShow() {
             const curr = activePlayerStr === 'A' ? el.chunkA : el.chunkB;
             const progress = curr.currentTime / (curr.duration || 1);
-            const realIdx = Math.floor((chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE));
+            const exactIdx = (chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE);
+            
+            // SNAP: Skočit na nejbližší desítku (rychlejší load)
+            const looseIdx = Math.floor(exactIdx / 10) * 10;
+            const finalIdx = Math.min(looseIdx, memories.length - 1);
+
             setState(STATE.PLAY).then(() => {
-                if(realIdx < memories.length) {
-                    el.slider.value = realIdx;
-                    playMem(realIdx);
-                } else { setState(STATE.LIVE); }
+                el.slider.value = finalIdx;
+                playMem(finalIdx);
             });
         }
 
