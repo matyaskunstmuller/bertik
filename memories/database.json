@@ -13838,5 +13838,55 @@
       "motion": 50,
       "brightness": 50
     }
+  },
+  {
+    "filename": "mem_1765575668863.webm",
+    "timestamp": 1765575668863,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765575683860.webm",
+    "timestamp": 1765575683860,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765575698868.webm",
+    "timestamp": 1765575698868,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765575713872.webm",
+    "timestamp": 1765575713872,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765575728864.webm",
+    "timestamp": 1765575728864,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
   }
 ]
