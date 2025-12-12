@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v13 (No Audio)</title>
+    <title>Bertik Final (Clean Core)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -173,7 +173,7 @@
         // Cache
         const chunkCache = new Map();
         let totalChunks = 0;
-        const CHUNK_SIZE = 300; // ZPĚT NA 300
+        const CHUNK_SIZE = 300;
 
         let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
         let pupilX=0, pupilY=0, lastEyeUpdate=0, lastMouseMoveTime=Date.now();
@@ -216,7 +216,7 @@
         document.getElementById('startBtn').addEventListener('click', async () => {
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
-            srcMask.play(); srcPupils.play();
+            srcMask.play(); srcPupils.play(); // Fix očí
             await loadDB();
             downloadAllChunks();
             el.slider.value = el.slider.max; 
@@ -383,7 +383,7 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (NO AUDIO VP9) ---
+        // --- ČASOSBĚR (VP9 SMOOTH) ---
         async function downloadAllChunks() {
             totalChunks = Math.ceil(memories.length / CHUNK_SIZE);
             el.cacheTxt.innerText = `CACHE: 0/${totalChunks}`;
