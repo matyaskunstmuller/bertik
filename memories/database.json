@@ -14650,5 +14650,16 @@
       "brightness": 50,
       "warmth": 50
     }
+  },
+  {
+    "filename": "mem_1765558363399.webm",
+    "timestamp": 1765558363399,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50,
+      "warmth": 50
+    }
   }
 ]
