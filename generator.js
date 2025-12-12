@@ -1,0 +1,71 @@
+const fs = require('fs');
+const { execSync } = require('child_process');
+const path = require('path');
+
+const MEM_DIR = 'memories';
+const CHUNK_DIR = 'memories/chunks';
+const THUMB_DIR = 'memories/thumbs';
+const DB_PATH = 'memories/database.json';
+
+// VRÁCENO NA 300 (Původní délka)
+const CHUNK_SIZE = 300; 
+
+if (!fs.existsSync(CHUNK_DIR)) fs.mkdirSync(CHUNK_DIR, { recursive: true });
+if (!fs.existsSync(THUMB_DIR)) fs.mkdirSync(THUMB_DIR, { recursive: true });
+
+// 1. DATABÁZE
+const diskFiles = fs.readdirSync(MEM_DIR).filter(f => f.startsWith('mem_') && f.endsWith('.webm'));
+const db = diskFiles.map(f => ({
+    filename: f,
+    timestamp: parseInt(f.split('_')[1]) || Date.now(),
+    stats: { volume: 50, color: '#888888', motion: 50, brightness: 50 }
+})).sort((a,b) => a.timestamp - b.timestamp);
+
+fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+
+// 2. NÁHLEDY
+db.forEach((mem, index) => {
+    if (index % 5 === 0) { 
+        const thumbPath = path.join(THUMB_DIR, `thumb_${index}.jpg`);
+        const vidPath = path.join(MEM_DIR, mem.filename);
+        if (!fs.existsSync(thumbPath)) {
+            try {
+                execSync(`ffmpeg -ss 0.0 -i "${vidPath}" -vframes 1 -vf scale=160:-1 -q:v 15 "${thumbPath}" -y`, { stdio: 'ignore' });
+            } catch (e) {}
+        }
+    }
+});
+
+// 3. CHUNKY (VP9 - NO AUDIO)
+const totalChunks = Math.floor(db.length / CHUNK_SIZE);
+for (let i = 0; i < totalChunks; i++) {
+    const chunkName = `chunk_${i}.webm`;
+    const chunkPath = path.join(CHUNK_DIR, chunkName);
+
+    if (!fs.existsSync(chunkPath)) {
+        console.log(`Generuji ${chunkName}...`);
+        const slice = db.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        const tempDir = `temp_img_${i}`;
+        if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+        fs.mkdirSync(tempDir);
+
+        try {
+            let count = 0;
+            slice.forEach((mem, idx) => {
+                const vPath = path.join(MEM_DIR, mem.filename);
+                const iPath = path.join(tempDir, `img_${String(idx).padStart(3, '0')}.jpg`);
+                try {
+                    execSync(`ffmpeg -ss 0.0 -i "${vPath}" -vframes 1 -q:v 2 "${iPath}" -y`, { stdio: 'ignore' });
+                    count++;
+                } catch(e){}
+            });
+
+            if(count > 0) {
+                // FIX: -an (odstraní audio stopu), -row-mt 1 (multithreading)
+                execSync(`ffmpeg -framerate 60 -i ${tempDir}/img_%03d.jpg -c:v libvpx-vp9 -b:v 3M -an -row-mt 1 -pix_fmt yuv420p "${chunkPath}"`);
+                console.log("Chunk hotov.");
+            }
+        } catch (e) { console.error(e.message); }
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch(e) {}
+    }
+}
