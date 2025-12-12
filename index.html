@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v7.6 (Performance Snap)</title>
+    <title>Bertik v15 (Math Stop)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -107,8 +107,7 @@
     <div id="videoContainer">
         <video id="liveVideo" class="video-layer hidden" autoplay muted playsinline></video>
         <video id="playbackVideo" class="video-layer hidden" playsinline muted></video>
-        <video id="chunkA" class="video-layer hidden" playsinline muted></video>
-        <video id="chunkB" class="video-layer hidden" playsinline muted></video>
+        <video id="chunkVideo" class="video-layer hidden" playsinline muted></video>
         <img id="thumbPreview" class="video-layer hidden">
     </div>
 
@@ -173,7 +172,7 @@
         // Cache
         const chunkCache = new Map();
         let totalChunks = 0;
-        const CHUNK_SIZE = 300;
+        const CHUNK_SIZE = 300; 
 
         let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
         let pupilX=0, pupilY=0, lastEyeUpdate=0, lastMouseMoveTime=Date.now();
@@ -182,8 +181,7 @@
         const el = {
             live: document.getElementById('liveVideo'),
             play: document.getElementById('playbackVideo'),
-            chunkA: document.getElementById('chunkA'),
-            chunkB: document.getElementById('chunkB'),
+            chunk: document.getElementById('chunkVideo'),
             thumb: document.getElementById('thumbPreview'),
             slider: document.getElementById('slider'),
             statsMenu: document.getElementById('statsMenu'),
@@ -216,7 +214,7 @@
         document.getElementById('startBtn').addEventListener('click', async () => {
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
-            srcMask.play(); srcPupils.play();
+            srcMask.play(); srcPupils.play(); // Fix očí
             await loadDB();
             downloadAllChunks();
             el.slider.value = el.slider.max; 
@@ -254,9 +252,9 @@
             const show = (e) => { e.classList.remove('hidden'); e.classList.add('visible'); };
             const hide = (e) => { e.classList.remove('visible'); e.classList.add('hidden'); };
 
-            hide(el.live); hide(el.play); hide(el.chunkA); hide(el.chunkB);
+            hide(el.live); hide(el.play); hide(el.chunk);
             el.thumb.style.display = 'none';
-            el.play.pause(); el.chunkA.pause(); el.chunkB.pause();
+            el.play.pause(); el.chunk.pause();
 
             el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
             el.btnTime.style.backgroundImage = (mode===STATE.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
@@ -383,7 +381,7 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR (VP9 SMOOTH) ---
+        // --- ČASOSBĚR (MATH STOP) ---
         async function downloadAllChunks() {
             totalChunks = Math.ceil(memories.length / CHUNK_SIZE);
             el.cacheTxt.innerText = `CACHE: 0/${totalChunks}`;
@@ -404,64 +402,57 @@
         }
 
         let chunkId = 0;
-        let activePlayerStr = 'A';
-        let animationFrameId; // Pro plynulý slider
 
         async function runTimelapse() {
-            chunkId = 0; activePlayerStr = 'A';
-            playTimelapseStep();
+            chunkId = 0; 
+            playNextChunk();
         }
 
-        async function playTimelapseStep() {
+        async function playNextChunk() {
             if(state !== STATE.TIME) return;
-
-            const curr = activePlayerStr === 'A' ? el.chunkA : el.chunkB;
-            const next = activePlayerStr === 'A' ? el.chunkB : el.chunkA;
 
             let src = chunkCache.get(chunkId);
             if(!src) src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
             
-            curr.src = src;
-            curr.classList.remove('hidden'); curr.classList.add('visible');
-            next.classList.remove('visible'); next.classList.add('hidden');
+            el.chunk.src = src;
+            el.chunk.classList.remove('hidden'); el.chunk.classList.add('visible');
 
-            try { await curr.play(); } catch(e) { setState(STATE.LIVE); return; }
+            try { await el.chunk.play(); } catch(e) { setState(STATE.LIVE); return; }
 
-            let nextSrc = chunkCache.get(chunkId + 1);
-            if(!nextSrc && (chunkId+1) < totalChunks) nextSrc = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId+1}.webm`;
-            if (nextSrc) { next.src = nextSrc; next.load(); }
-
-            // OPTIMALIZOVANÝ SLIDER (RequestAnimationFrame)
-            const updateSlider = () => {
-                if(state !== STATE.TIME || curr.paused) return;
-                const p = curr.currentTime / (curr.duration || 1);
+            const anim = setInterval(() => {
+                if(state !== STATE.TIME || el.chunk.paused) { clearInterval(anim); return; }
+                const p = el.chunk.currentTime / (el.chunk.duration || 1);
                 el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
-                animationFrameId = requestAnimationFrame(updateSlider);
-            };
-            cancelAnimationFrame(animationFrameId);
-            updateSlider();
+            }, 100);
 
-            curr.onended = () => {
-                cancelAnimationFrame(animationFrameId);
-                activePlayerStr = activePlayerStr === 'A' ? 'B' : 'A';
+            el.chunk.onended = () => {
+                clearInterval(anim);
                 chunkId++;
-                if(chunkId < totalChunks) playTimelapseStep();
+                if(chunkId < totalChunks) playNextChunk();
                 else setState(STATE.LIVE);
             };
             
-            curr.onerror = () => { setState(STATE.LIVE); };
+            el.chunk.onerror = () => { setState(STATE.LIVE); };
         }
 
-        // OPRAVA ZASTAVOVÁNÍ (SNAP)
         function stopTimelapseAndShow() {
-            const curr = activePlayerStr === 'A' ? el.chunkA : el.chunkB;
-            const progress = curr.currentTime / (curr.duration || 1);
-            const exactIdx = (chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE);
+            // MATEMATICKÝ VÝPOČET KDY JSME ZASTAVILI
+            const progress = el.chunk.currentTime / (el.chunk.duration || 1);
             
-            // SNAP: Skočit na nejbližší desítku (rychlejší load)
-            const looseIdx = Math.floor(exactIdx / 10) * 10;
-            const finalIdx = Math.min(looseIdx, memories.length - 1);
+            // 1. Zjistíme "přibližný" index (např. 152.3)
+            let rawIdx = (chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE);
+            
+            // 2. Zaokrouhlíme na celé číslo
+            let finalIdx = Math.floor(rawIdx);
+            
+            // 3. Pojistka proti přetečení
+            if (finalIdx >= memories.length) finalIdx = memories.length - 1;
+            if (finalIdx < 0) finalIdx = 0;
 
+            console.log("Stopping at index:", finalIdx);
+
+            // 4. PŘEPNUTÍ: Nejdřív změníme stav (to zastaví smyčku časosběru)
+            // A pak načteme konkrétní vzpomínku
             setState(STATE.PLAY).then(() => {
                 el.slider.value = finalIdx;
                 playMem(finalIdx);
