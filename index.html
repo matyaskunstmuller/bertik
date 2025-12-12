@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v6.0 (Original Eyes + Fit)</title>
+    <title>Bertik v6.5 (Smart Timelapse)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -25,22 +25,17 @@
         .video-layer { 
             position: fixed; inset: 0; width: 100%; height: 100%;
             z-index: 1; background: #000; 
-            object-fit: cover; /* Defaultně ořezat */
-            transition: object-fit 0.3s; /* Plynulá změna */
+            object-fit: cover; transition: object-fit 0.3s;
         }
-        /* Třída pro změnu zobrazení na "Celé" */
-        .video-layer.fit-contain { object-fit: contain; }
-
         #liveVideo { transform: scaleX(-1); }
         #playbackVideo { display: none; }
-        #chunkVideo { display: none; }
+        #chunkVideo { display: none; } /* Časosběr přehrávač */
         #thumbPreview { display: none; }
 
         /* --- 2. VRSTVA: AVATAR (Uprostřed, Z-INDEX 10) --- */
-        /* Původní styl .center-stage upravený pro překryv */
         .center-stage { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 80vh; height: 80vh; /* Aby byl velký podle výšky okna */
+            width: 80vh; height: 80vh; 
             display: flex; justify-content: center; align-items: center; 
             pointer-events: none; z-index: 10;
         }
@@ -54,7 +49,6 @@
         #layerTongue { z-index: 30; opacity: 0; }
         #layerEars { z-index: 11; opacity: 0; }
 
-        /* Zdroje pro canvas (skryté) */
         #sourceMask, #sourcePupils { display: none; }
 
         /* --- 3. VRSTVA: UI (Nahoře, Z-INDEX 100) --- */
@@ -82,7 +76,6 @@
         .bar-fill { height: 100%; background: #fff; width: 0%; transition: width 0.5s; }
         .color-dot { width: 10px; height: 10px; background: #000; border-radius: 50%; }
         
-        /* Tlačítko pro změnu zobrazení */
         .toggle-btn { 
             background: transparent; border: 1px solid #aaa; color: #fff; 
             padding: 2px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; 
@@ -139,7 +132,6 @@
         }
         #startBtn:hover { opacity: 0.7; }
 
-        /* Canvas pro analýzu */
         #analysisCanvas { display: none; }
         
         @media (max-width: 600px) {
@@ -201,7 +193,6 @@
                     <button id="fitToggleBtn" class="toggle-btn">VYPLNIT</button>
                 </div>
                 <div style="height:1px; background:#444; margin:5px 0;"></div>
-                
                 <div class="stat-row">HLASITOST <div class="bar-bg"><div id="bVol" class="bar-fill"></div></div></div>
                 <div class="stat-row">JAS <div class="bar-bg"><div id="bBri" class="bar-fill"></div></div></div>
                 <div class="stat-row">TEPLOTA <div class="bar-bg"><div id="bWarm" class="bar-fill"></div></div></div>
@@ -226,11 +217,11 @@
     <script>
         // --- CONFIG ---
         const CAST_1 = "ghp_"; 
-        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! TOKEN !!!
+        const CAST_2 = "uV9FhsFwrzeKlOVtPnY72bMhVGAHjh4IPNL8"; // <--- !!! VLOŽIT ZDE !!!
         const TOKEN = CAST_1 + CAST_2;
         const REPO = { owner: "matyaskunstmuller", name: "bertik" };
 
-        // --- VARS ---
+        // --- STAVY ---
         const STATE = { OFF: 0, LIVE: 1, PLAY: 2, TIME: 3 };
         let state = STATE.OFF;
         
@@ -239,16 +230,14 @@
         let recInterval, analysisInterval;
         let camId, micId;
         
-        // Zobrazení (Fit/Cover)
+        // Zobrazení
         let isCover = true; 
 
-        // Avatar (PŮVODNÍ PROMĚNNÉ)
+        // Avatar
         let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
-        let pupilX = 0, pupilY = 0;
-        let lastEyeUpdate = 0;
+        let pupilX = 0, pupilY = 0, lastEyeUpdate = 0;
         let lastMouseMoveTime = Date.now();
-        let roamX = 0, roamY = 0;
-        let roamTargetTime = 0;
+        let roamX = 0, roamY = 0, roamTargetTime = 0;
 
         // UI
         const el = {
@@ -277,7 +266,6 @@
         const srcMask = document.getElementById('srcMask');
         const srcPupils = document.getElementById('srcPupils');
         
-        // Analýza
         const ctxAn = document.getElementById('analysisCanvas').getContext('2d');
         let stats = { bri:0, vol:0 };
         let analyser, dataArray;
@@ -287,16 +275,13 @@
             if(window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
             loadDevices();
             setInterval(updateClock, 1000);
-            renderAvatarLoop(); // Spustit oči
+            renderAvatarLoop();
         });
 
         document.getElementById('startBtn').addEventListener('click', async () => {
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
-            
-            // Nastartovat skrytá videa pro oči (nutné pro canvas)
             srcMask.play(); srcPupils.play();
-            
             await loadDB();
             el.slider.value = el.slider.max; 
             document.getElementById('introLayer').classList.add('hidden');
@@ -312,19 +297,15 @@
 
         // --- OVLÁDÁNÍ ---
         
-        // Změna ořezu videa (Fit/Cover)
+        // Změna ořezu
         el.fitBtn.addEventListener('click', () => {
             isCover = !isCover;
             const mode = isCover ? 'cover' : 'contain';
-            const label = isCover ? 'VYPLNIT' : 'CELÉ';
-            
-            // Aplikovat na všechna videa
+            el.fitBtn.innerText = isCover ? 'VYPLNIT' : 'CELÉ';
             el.live.style.objectFit = mode;
             el.play.style.objectFit = mode;
             el.chunk.style.objectFit = mode;
             el.thumb.style.objectFit = mode;
-            
-            el.fitBtn.innerText = label;
         });
 
         el.btnPwr.addEventListener('click', () => {
@@ -332,10 +313,15 @@
             else setState(STATE.OFF);
         });
 
+        // ČASOSBĚR: Tlačítko teď slouží jako Play/Stop
         el.btnTime.addEventListener('click', () => {
             if (state === STATE.OFF) return;
-            if (state === STATE.TIME) setState(STATE.LIVE);
-            else setState(STATE.TIME);
+            if (state === STATE.TIME) {
+                // STOP -> Jít na PŘEHRÁVÁNÍ v aktuálním bodě
+                stopTimelapseAndShow();
+            } else {
+                setState(STATE.TIME);
+            }
         });
 
         el.btnSim.addEventListener('click', () => {
@@ -346,7 +332,7 @@
         async function setState(mode) {
             state = mode;
             
-            // Reset
+            // Reset videí
             el.live.style.display = 'none';
             el.play.style.display = 'none';
             el.chunk.style.display = 'none';
@@ -359,7 +345,6 @@
 
             if (mode === STATE.OFF) {
                 stopRec(); stopAnalysis();
-                // Avatar Sleep
                 el.headS.style.display = 'block';
                 el.headB.style.opacity = 0; el.eyes.style.opacity=0; el.ears.style.opacity=0;
                 el.slider.disabled = true;
@@ -369,7 +354,6 @@
                 await initCam();
                 startRec(); startAnalysis();
                 el.live.style.display = 'block';
-                // Avatar Live
                 el.headS.style.display = 'none';
                 el.headB.style.opacity = 1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
                 el.headB.play(); el.ears.play();
@@ -387,75 +371,52 @@
             }
         }
 
-        // --- PŮVODNÍ LOGIKA OČÍ (Restored) ---
+        // --- AVATAR (ORIGINAL) ---
         document.addEventListener('mousemove', (e) => { 
-            mouseX = e.clientX; 
-            mouseY = e.clientY; 
-            lastMouseMoveTime = Date.now(); 
+            mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); 
         });
 
         function renderAvatarLoop() {
             if(state !== STATE.OFF) {
                 const now = Date.now();
-                // Update 12fps (přibližně)
                 if (now - lastEyeUpdate > (1000/12)) {
                     let targetX, targetY;
-                    
-                    // Nuda (Roaming) po 3 sekundách nečinnosti
                     if (now - lastMouseMoveTime > 3000) {
                         if (now > roamTargetTime) {
-                            roamX = (Math.random() - 0.5) * 200; 
-                            roamY = (Math.random() - 0.5) * 100; 
-                            roamTargetTime = now + 2000 + Math.random() * 500; 
+                            roamX = (Math.random()-0.5)*200; roamY = (Math.random()-0.5)*100;
+                            roamTargetTime = now + 2000 + Math.random()*500;
                         }
-                        targetX = pupilX + (roamX - pupilX) * 0.3; 
-                        targetY = pupilY + (roamY - pupilY) * 0.3;
+                        targetX = pupilX + (roamX - pupilX)*0.3; targetY = pupilY + (roamY - pupilY)*0.3;
                     } else {
-                        // Sledování myši
-                        const cx = window.innerWidth / 2;
-                        const cy = window.innerHeight / 2;
-                        targetX = ((mouseX - cx) / 25) * 6.5;
-                        targetY = ((mouseY - cy) / 25) * 6.5;
+                        const cx = window.innerWidth/2; const cy = window.innerHeight/2;
+                        targetX = ((mouseX-cx)/25)*6.5; targetY = ((mouseY-cy)/25)*6.5;
                     }
-                    
                     pupilX = Math.max(-150, Math.min(150, targetX));
                     pupilY = Math.max(-150, Math.min(150, targetY));
                     lastEyeUpdate = now;
                 }
-
-                // Vykreslení
                 const W = el.eyes.width; const H = el.eyes.height;
-                ctxEyes.clearRect(0, 0, W, H); 
-                
-                if(srcMask.readyState >= 2) {
-                    ctxEyes.globalCompositeOperation = 'source-over'; 
-                    ctxEyes.drawImage(srcMask, 0, 0, W, H); 
-                    ctxEyes.globalCompositeOperation = 'source-in'; 
-                    ctxEyes.drawImage(srcPupils, pupilX, pupilY, W, H); 
-                    ctxEyes.globalCompositeOperation = 'source-over';
+                ctxEyes.clearRect(0,0,W,H); 
+                if(srcMask.readyState>=2) {
+                    ctxEyes.globalCompositeOperation='source-over'; ctxEyes.drawImage(srcMask,0,0,W,H); 
+                    ctxEyes.globalCompositeOperation='source-in'; ctxEyes.drawImage(srcPupils,pupilX,pupilY,W,H); 
+                    ctxEyes.globalCompositeOperation='source-over';
                 }
             }
             requestAnimationFrame(renderAvatarLoop);
         }
 
-        // Animace hlavy
         function triggerBlink() {
             if(state===STATE.OFF) return;
-            el.headB.style.opacity = 0; el.eyes.style.opacity = 0;
-            el.blink.src = "assets/blink_anim.webm"; 
-            el.blink.style.opacity = 1; el.blink.play();
-            el.blink.onended = () => { 
-                el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; 
-            };
+            el.headB.style.opacity=0; el.eyes.style.opacity=0;
+            el.blink.src = "assets/blink_anim.webm"; el.blink.style.opacity=1; el.blink.play();
+            el.blink.onended = () => { el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
         }
         function triggerTongue() {
             if(state===STATE.OFF) return;
-            el.headB.style.opacity = 0; el.eyes.style.opacity = 0;
-            el.tongue.src = "assets/tongue_action.webm"; 
-            el.tongue.style.opacity = 1; el.tongue.play();
-            el.tongue.onended = () => { 
-                el.tongue.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; 
-            };
+            el.headB.style.opacity=0; el.eyes.style.opacity=0;
+            el.tongue.src = "assets/tongue_action.webm"; el.tongue.style.opacity=1; el.tongue.play();
+            el.tongue.onended = () => { el.tongue.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
         }
         setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
 
@@ -463,14 +424,11 @@
         el.slider.addEventListener('input', () => {
             if(state===STATE.OFF) return;
             if(state!==STATE.PLAY) setState(STATE.PLAY);
-            
-            el.play.style.display = 'none';
-            el.thumb.style.display = 'block';
+            el.play.style.display='none'; el.thumb.style.display='block';
             
             const idx = parseInt(el.slider.value);
             if(idx >= memories.length) {
-                el.thumb.style.display = 'none';
-                el.live.style.display = 'block'; // Live náhled
+                el.thumb.style.display='none'; el.live.style.display='block';
             } else {
                 const tIdx = Math.floor(idx/5)*5;
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg`;
@@ -484,26 +442,19 @@
         });
 
         async function playMem(idx) {
-            el.thumb.style.display = 'none';
-            el.play.style.display = 'block';
-            
+            el.thumb.style.display='none'; el.play.style.display='block';
             const mem = memories[idx];
             if(!mem) return;
-
             el.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
-            
-            const safe = setTimeout(() => { if(state===STATE.PLAY) playMem(idx+1); }, 3000);
-            try { await el.play.play(); clearTimeout(safe); } 
-            catch(e){ clearTimeout(safe); }
+            try { await el.play.play(); } catch(e){}
         }
 
         el.play.onended = () => {
             const next = parseInt(el.slider.value)+1;
-            if(next < memories.length) { el.slider.value = next; playMem(next); }
+            if(next < memories.length) { el.slider.value=next; playMem(next); }
             else setState(STATE.LIVE);
         };
 
-        // --- PODOBNÉ ---
         function findSimilar() {
             if(memories.length<5) return;
             let best=0; let min=Infinity;
@@ -516,31 +467,60 @@
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
-        // --- ČASOSBĚR ---
+        // --- ČASOSBĚR (CHUNK ONLY) ---
+        let currentChunkId = 0;
+        const CHUNK_SIZE = 300;
+
         async function runTimelapse() {
-            let id=0; const SIZE=300;
-            while(state===STATE.TIME) {
-                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${id}.webm`;
+            currentChunkId = 0;
+            
+            while(state === STATE.TIME) {
+                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${currentChunkId}.webm`;
                 const ok = await fetch(url, {method:'HEAD'}).then(r=>r.ok).catch(()=>false);
-                if(!ok) { setState(STATE.LIVE); break; }
                 
-                el.chunk.src=url;
+                if(!ok) { setState(STATE.LIVE); break; }
+
+                el.chunk.src = url;
                 await new Promise(res => {
                     el.chunk.onloadedmetadata=()=>{
                         el.chunk.play();
-                        const a = setInterval(()=>{
-                            if(state!==STATE.TIME){clearInterval(a);return;}
+                        // Update slider visual
+                        const anim = setInterval(()=>{
+                            if(state!==STATE.TIME){clearInterval(anim);return;}
                             const p=el.chunk.currentTime/el.chunk.duration;
-                            el.slider.value=(id*SIZE)+(p*SIZE);
+                            el.slider.value=(currentChunkId*CHUNK_SIZE)+(p*CHUNK_SIZE);
                         },200);
                     };
                     el.chunk.onended=res; el.chunk.onerror=res;
                 });
-                id++;
+                currentChunkId++;
             }
         }
 
-        // --- HW & ANALÝZA ---
+        // NOVÁ FUNKCE: Chytré zastavení
+        function stopTimelapseAndShow() {
+            // 1. Zjistit kde jsme
+            const currentTime = el.chunk.currentTime;
+            const duration = el.chunk.duration || 1;
+            const progress = currentTime / duration;
+            
+            // 2. Vypočítat index vzpomínky
+            const chunkBase = currentChunkId * CHUNK_SIZE;
+            const realIndex = Math.floor(chunkBase + (progress * CHUNK_SIZE));
+            
+            // 3. Přepnout do přehrávání
+            setState(STATE.PLAY);
+            
+            // 4. Nastavit slider a pustit video
+            if (realIndex < memories.length) {
+                el.slider.value = realIndex;
+                playMem(realIndex);
+            } else {
+                setState(STATE.LIVE);
+            }
+        }
+
+        // --- HW ---
         async function loadDevices() {
             try {
                 const d=await navigator.mediaDevices.enumerateDevices();
@@ -559,7 +539,6 @@
                 if(el.live.srcObject)el.live.srcObject.getTracks().forEach(t=>t.stop());
                 const stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:camId}},audio:true});
                 el.live.srcObject=stream;
-                
                 const ac=new AudioContext();
                 analyser=ac.createAnalyser();
                 const src=ac.createMediaStreamSource(stream);
@@ -572,19 +551,14 @@
             clearInterval(analysisInterval);
             analysisInterval=setInterval(()=>{
                 if(state!==STATE.LIVE)return;
-                // Video Data
                 ctxAn.drawImage(el.live,0,0,64,64);
                 const d=ctxAn.getImageData(0,0,64,64).data;
                 let r=0,g=0,b=0;
                 for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];}
                 const c=d.length/4;
                 stats.bri=Math.round((r/c+g/c+b/c)/3);
-                const color=`rgb(${Math.round(r/c)},${Math.round(g/c)},${Math.round(b/c)})`;
-                
                 document.getElementById('bBri').style.width=(stats.bri/2.55)+"%";
-                document.getElementById('bCol').style.backgroundColor=color;
-                
-                // Audio
+                document.getElementById('bCol').style.backgroundColor=`rgb(${Math.round(r/c)},${Math.round(g/c)},${Math.round(b/c)})`;
                 if(analyser){
                     analyser.getByteFrequencyData(dataArray);
                     stats.vol=dataArray[10];
