@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v22 (Double Vision Fix)</title>
+    <title>Bertik v23 (Big Buttons & Glow)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; user-select: none; }
 
-        /* 1. VIDEA (Z-INDEX 1) */
+        /* --- 1. VIDEA --- */
         .video-layer { 
             position: fixed; inset: 0; width: 100%; height: 100%;
             z-index: 1; background: #000; object-fit: cover; 
@@ -27,7 +27,7 @@
         #liveVideo { transform: scaleX(-1); }
         #thumbPreview { display: none; object-fit: contain; z-index: 5; }
 
-        /* 2. AVATAR (Z-INDEX 10) */
+        /* --- 2. AVATAR --- */
         .center-stage { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             width: 85vh; height: 85vh; pointer-events: none; z-index: 10;
@@ -42,10 +42,9 @@
         #layerTongue { z-index: 30; opacity: 0; }
         #layerEars { z-index: 11; opacity: 0; }
 
-        /* Zdroje očí */
         .source-video-hidden { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; }
 
-        /* 3. UI */
+        /* --- 3. UI --- */
         #uiLayer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
         .interactive { pointer-events: auto; cursor: pointer; }
 
@@ -59,10 +58,45 @@
         .color-dot { width: 10px; height: 10px; background: #000; border-radius: 50%; }
         .toggle-btn { background: transparent; border: 1px solid #aaa; color: #fff; padding: 2px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; }
 
-        .bottom-left { position: absolute; bottom: 30px; left: 30px; right: 30px; display: flex; flex-direction: column; gap: 20px; }
-        .buttons-row { display: flex; gap: 20px; }
-        .big-btn { width: 70px; height: 70px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: transparent; border: none; cursor: pointer; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.8)); transition: transform 0.1s; }
+        /* --- TLAČÍTKA A OVLÁDÁNÍ --- */
+        .bottom-left { 
+            position: absolute; bottom: 30px; left: 30px; right: 30px; 
+            display: flex; flex-direction: column; gap: 20px; 
+        }
+        
+        .buttons-row { 
+            display: flex; gap: 30px; align-items: flex-end;
+        }
+        
+        /* Velká tlačítka (2x zvětšeno z 70 na 140) */
+        .big-btn { 
+            width: 140px; height: 140px; 
+            background-size: contain; background-repeat: no-repeat; background-position: center; 
+            background-color: transparent; border: none; cursor: pointer; 
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.8)); transition: transform 0.1s; 
+            position: relative; z-index: 2; /* Aby byl nad glowem */
+        }
         .big-btn:active { transform: scale(0.95); filter: brightness(0.8); }
+
+        /* GLOW EFEKT PRO VYPÍNAČ */
+        @keyframes pulseRed {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
+            50% { transform: translate(-50%, -50%) scale(1.4); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
+        }
+        
+        /* Wrapper pro vypínač, aby se glow centroval k němu */
+        .power-wrapper { position: relative; }
+        
+        #powerGlow {
+            position: absolute; top: 50%; left: 50%;
+            width: 250px; height: 250px; /* Velký gradient */
+            background: radial-gradient(circle, rgba(255,0,0,0.8) 0%, rgba(255,0,0,0) 70%);
+            transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 1;
+            animation: pulseRed 2s infinite ease-in-out;
+            display: none; /* JS zapíná */
+        }
 
         .slider-wrapper { width: 100%; height: 30px; display: flex; align-items: center; }
         input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; }
@@ -81,11 +115,23 @@
         .opt-row select { background: transparent; border: none; color: #fff; font-family: inherit; text-align: right; cursor: pointer; }
         #startBtn { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); background: transparent; border: none; color: #fff; font-size: 16px; font-weight: 700; letter-spacing: 3px; cursor: pointer; padding: 20px; }
         #analysisCanvas { display: none; }
+        
+        /* MOBILNÍ UPRAVY */
         @media (max-width: 600px) {
             .intro-top { flex-direction: column; gap: 30px; }
             .intro-desc { width: 100%; }
             .intro-opts { text-align: left; }
             .center-stage { width: 90vw; height: 90vw; }
+            
+            /* Tlačítka na mobilu */
+            .bottom-left { left: 15px; right: 15px; bottom: 20px; gap: 15px; }
+            .buttons-row { 
+                width: 100%; 
+                justify-content: space-between; /* Roztažení: Podobné(L) - Čas(C) - Power(R) */
+                gap: 0;
+            }
+            .big-btn { width: 85px; height: 85px; } /* Menší než na desktopu, aby se vešly */
+            #powerGlow { width: 150px; height: 150px; } /* Menší glow */
         }
     </style>
 </head>
@@ -107,8 +153,8 @@
 
     <div id="videoContainer">
         <video id="liveVideo" class="video-layer hidden" autoplay muted playsinline></video>
-        <video id="playbackVideo" class="video-layer hidden" playsinline></video>
-        <video id="chunkVideo" class="video-layer hidden" playsinline></video>
+        <video id="playbackVideo" class="video-layer hidden" playsinline muted></video>
+        <video id="chunkVideo" class="video-layer hidden" playsinline muted></video>
         <video id="preloadVideo" style="display:none;" muted playsinline></video>
         <img id="thumbPreview" class="video-layer hidden">
     </div>
@@ -142,12 +188,18 @@
                 <div id="cacheStatus">CACHE: 0/0</div>
             </div>
         </div>
+        
         <div class="bottom-left interactive">
             <div class="buttons-row">
                 <button id="btnSim" class="big-btn" style="background-image: url('assets/btn_sim_idle.png')"></button>
-                <button id="btnPwr" class="big-btn" style="background-image: url('assets/btn_power_off.png')"></button>
                 <button id="btnTime" class="big-btn" style="background-image: url('assets/btn_time_off.png')"></button>
+                
+                <div class="power-wrapper">
+                    <div id="powerGlow"></div>
+                    <button id="btnPwr" class="big-btn" style="background-image: url('assets/btn_power_off.png')"></button>
+                </div>
             </div>
+            
             <div class="slider-wrapper">
                 <input type="range" id="slider" min="0" max="100" value="100" disabled>
             </div>
@@ -170,6 +222,7 @@
         let recInterval, analysisInterval;
         let camId, micId;
         let isCover = true; 
+        let isTongueActive = false; // Flag pro jazyk
 
         const chunkCache = new Map();
         let totalChunks = 0;
@@ -197,7 +250,8 @@
             tongue: document.getElementById('layerTongue'),
             btnPwr: document.getElementById('btnPwr'),
             btnTime: document.getElementById('btnTime'),
-            btnSim: document.getElementById('btnSim')
+            btnSim: document.getElementById('btnSim'),
+            glow: document.getElementById('powerGlow')
         };
         const ctxEyes = el.eyes.getContext('2d');
         const srcMask = document.getElementById('srcMask');
@@ -211,14 +265,15 @@
             loadDevices();
             setInterval(updateClock, 1000);
             renderAvatarLoop();
+            
+            // Default stav glow
+            el.glow.style.display = 'block';
         });
 
         document.getElementById('startBtn').addEventListener('click', async () => {
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
-            
-            srcMask.play(); srcPupils.play();
-            
+            srcMask.play(); srcPupils.play(); 
             await loadDB();
             downloadAllChunks();
             el.slider.value = el.slider.max; 
@@ -263,6 +318,9 @@
             el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
             el.btnTime.style.backgroundImage = (mode===STATE.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
 
+            // Glow logic
+            el.glow.style.display = (mode === STATE.OFF) ? 'block' : 'none';
+
             if (mode === STATE.OFF) {
                 stopRec(); stopAnalysis();
                 el.headS.style.display = 'block';
@@ -290,7 +348,7 @@
             }
         }
 
-        // --- AVATAR (FIX DVOJITÉ ZORNIČKY) ---
+        // --- AVATAR (RYCHLEJŠÍ POHYB + OČI PŘI JAZYKU) ---
         document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
 
         function renderAvatarLoop() {
@@ -307,14 +365,14 @@
                         tx = pupilX + (roamX - pupilX)*0.1; 
                         ty = pupilY + (roamY - pupilY)*0.1;
                     } else {
-                        // VĚTŠÍ POHYB (3x)
                         const cx = window.innerWidth/2; const cy = window.innerHeight/2;
-                        tx = ((mouseX-cx)/100)*2.0; // Bylo 300
+                        tx = ((mouseX-cx)/100)*2.0; 
                         ty = ((mouseY-cy)/100)*2.0;
                     }
                     
-                    pupilX += (tx - pupilX) * 0.05;
-                    pupilY += (ty - pupilY) * 0.05;
+                    // ZRYCHLENÍ (0.15)
+                    pupilX += (tx - pupilX) * 0.15;
+                    pupilY += (ty - pupilY) * 0.15;
 
                     lastEyeUpdate = now;
                 }
@@ -322,13 +380,10 @@
                 const W = el.eyes.width; const H = el.eyes.height;
                 ctxEyes.clearRect(0,0,W,H); 
                 
-                if(srcPupils.readyState>=2 && el.headB.style.opacity == 1) {
-                    // FIX: Režim 'screen' odstraní černé pozadí
+                // PODMÍNKA: Kreslit oči pokud je hlava vidět NEBO pokud je jazyk venku
+                if(srcPupils.readyState>=2 && (el.headB.style.opacity == 1 || isTongueActive)) {
                     ctxEyes.globalCompositeOperation = 'screen';
-                    
-                    // FIX: Kreslíme jen JEDNOU
                     ctxEyes.drawImage(srcPupils, 0 + pupilX*5, 0 + pupilY*5, 2048, 2048);
-                    
                     ctxEyes.globalCompositeOperation = 'source-over';
                 }
             }
@@ -343,9 +398,15 @@
         }
         function triggerTongue() {
             if(state===STATE.OFF) return;
-            el.headB.style.opacity=0; el.eyes.style.opacity=0;
+            isTongueActive = true; // Flag on
+            el.headB.style.opacity=0; 
+            // el.eyes.style.opacity=0; // NEVYPÍNAT OČI
+            
             el.tongue.src = "assets/tongue_action.webm"; el.tongue.style.opacity=1; el.tongue.play();
-            el.tongue.onended = () => { el.tongue.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
+            el.tongue.onended = () => { 
+                isTongueActive = false; // Flag off
+                el.tongue.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; 
+            };
         }
         setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
 
