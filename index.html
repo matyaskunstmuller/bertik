@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v21 (Audio & Thumbs)</title>
+    <title>Bertik v22 (Double Vision Fix)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; user-select: none; }
 
-        /* VIDEA */
+        /* 1. VIDEA (Z-INDEX 1) */
         .video-layer { 
             position: fixed; inset: 0; width: 100%; height: 100%;
             z-index: 1; background: #000; object-fit: cover; 
@@ -25,14 +25,9 @@
         .visible { opacity: 1; pointer-events: auto; }
 
         #liveVideo { transform: scaleX(-1); }
-        
-        /* NÁHLED (Musí být nad videem) */
-        #thumbPreview { 
-            display: none; position: fixed; inset: 0; width: 100%; height: 100%; 
-            object-fit: contain; background: #000; z-index: 50; 
-        }
+        #thumbPreview { display: none; object-fit: contain; z-index: 5; }
 
-        /* AVATAR */
+        /* 2. AVATAR (Z-INDEX 10) */
         .center-stage { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             width: 85vh; height: 85vh; pointer-events: none; z-index: 10;
@@ -47,10 +42,10 @@
         #layerTongue { z-index: 30; opacity: 0; }
         #layerEars { z-index: 11; opacity: 0; }
 
-        /* ZDROJ ZORNIČEK (Maska smazána) */
+        /* Zdroje očí */
         .source-video-hidden { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; }
 
-        /* UI */
+        /* 3. UI */
         #uiLayer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
         .interactive { pointer-events: auto; cursor: pointer; }
 
@@ -114,11 +109,11 @@
         <video id="liveVideo" class="video-layer hidden" autoplay muted playsinline></video>
         <video id="playbackVideo" class="video-layer hidden" playsinline></video>
         <video id="chunkVideo" class="video-layer hidden" playsinline></video>
-        <video id="preloadVideo" style="display:none;" playsinline></video>
+        <video id="preloadVideo" style="display:none;" muted playsinline></video>
+        <img id="thumbPreview" class="video-layer hidden">
     </div>
-    
-    <img id="thumbPreview">
 
+    <video id="srcMask" class="source-video-hidden" src="assets/eyes_alpha_channel.webm" loop muted playsinline></video>
     <video id="srcPupils" class="source-video-hidden" src="assets/eyes_zornicky.webm" loop muted playsinline></video>
 
     <div class="center-stage">
@@ -176,12 +171,10 @@
         let camId, micId;
         let isCover = true; 
 
-        // Cache
         const chunkCache = new Map();
         let totalChunks = 0;
         const CHUNK_SIZE = 300; 
 
-        // Avatar
         let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
         let pupilX=0, pupilY=0, lastEyeUpdate=0, lastMouseMoveTime=Date.now();
         let roamX=0, roamY=0, roamTargetTime=0;
@@ -207,7 +200,8 @@
             btnSim: document.getElementById('btnSim')
         };
         const ctxEyes = el.eyes.getContext('2d');
-        const srcPupils = document.getElementById('srcPupils'); // Maska není potřeba
+        const srcMask = document.getElementById('srcMask');
+        const srcPupils = document.getElementById('srcPupils');
         const ctxAn = document.getElementById('analysisCanvas').getContext('2d');
         let stats = { bri:0, vol:0 };
         let analyser, dataArray;
@@ -223,7 +217,7 @@
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
             
-            srcPupils.play(); // Jen zorničky
+            srcMask.play(); srcPupils.play();
             
             await loadDB();
             downloadAllChunks();
@@ -296,7 +290,7 @@
             }
         }
 
-        // --- AVATAR (BEZ MASKY, JEMNÝ POHYB) ---
+        // --- AVATAR (FIX DVOJITÉ ZORNIČKY) ---
         document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
 
         function renderAvatarLoop() {
@@ -305,19 +299,18 @@
                 if (now - lastEyeUpdate > (1000/12)) {
                     let tx, ty;
                     if (now - lastMouseMoveTime > 3000) {
-                        // Nuda: Velmi malý pohyb (max 30 px)
                         if (now > roamTargetTime) {
-                            roamX = (Math.random()-0.5)*30; 
-                            roamY = (Math.random()-0.5)*15;
+                            roamX = (Math.random()-0.5)*150; 
+                            roamY = (Math.random()-0.5)*80;
                             roamTargetTime = now + 2000 + Math.random()*500;
                         }
                         tx = pupilX + (roamX - pupilX)*0.1; 
                         ty = pupilY + (roamY - pupilY)*0.1;
                     } else {
-                        // Sledování: Omezený rozsah
+                        // VĚTŠÍ POHYB (3x)
                         const cx = window.innerWidth/2; const cy = window.innerHeight/2;
-                        tx = ((mouseX-cx)/300)*1.5; // Extrémní tlumení
-                        ty = ((mouseY-cy)/300)*1.5;
+                        tx = ((mouseX-cx)/100)*2.0; // Bylo 300
+                        ty = ((mouseY-cy)/100)*2.0;
                     }
                     
                     pupilX += (tx - pupilX) * 0.05;
@@ -329,14 +322,14 @@
                 const W = el.eyes.width; const H = el.eyes.height;
                 ctxEyes.clearRect(0,0,W,H); 
                 
-                // Vykreslit JEN zorničky (bez masky)
                 if(srcPupils.readyState>=2 && el.headB.style.opacity == 1) {
-                    // Pozice: střed + offset
-                    ctxEyes.drawImage(srcPupils, pupilX*5 + 256, pupilY*5, 1536, 1536); // Ořez nebo posun
-                    // Poznámka: Pokud máte 2048x2048 asset, musíte ho správně vycentrovat.
-                    // Zde předpokládám, že střed assetu odpovídá středu plátna.
-                    // Pokud to bude uskakovat, musíte si pohrát s offsetem v drawImage.
-                    ctxEyes.drawImage(srcPupils, 0 + pupilX*10, 0 + pupilY*10, 2048, 2048);
+                    // FIX: Režim 'screen' odstraní černé pozadí
+                    ctxEyes.globalCompositeOperation = 'screen';
+                    
+                    // FIX: Kreslíme jen JEDNOU
+                    ctxEyes.drawImage(srcPupils, 0 + pupilX*5, 0 + pupilY*5, 2048, 2048);
+                    
+                    ctxEyes.globalCompositeOperation = 'source-over';
                 }
             }
             requestAnimationFrame(renderAvatarLoop);
@@ -356,19 +349,15 @@
         }
         setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
 
-        // --- PŘEHRÁVÁNÍ & NÁHLEDY ---
+        // --- PŘEHRÁVÁNÍ ---
         el.slider.addEventListener('input', () => {
             if(state===STATE.OFF) return;
             if(state!==STATE.PLAY) setState(STATE.PLAY);
-            
             el.play.classList.remove('visible'); el.play.classList.add('hidden');
             el.thumb.style.display='block';
-            
             const idx = parseInt(el.slider.value);
-            if(idx >= memories.length) {
-                el.thumb.style.display='none';
-            } else {
-                // Generátor dělá náhledy po 5 (thumb_0, thumb_5...)
+            if(idx >= memories.length) el.thumb.style.display='none'; 
+            else {
                 const tIdx = Math.floor(idx/5)*5;
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg`;
             }
@@ -479,7 +468,7 @@
             });
         }
 
-        // --- HW & REC ---
+        // --- HW ---
         async function loadDevices() {
             try {
                 const d=await navigator.mediaDevices.enumerateDevices();
