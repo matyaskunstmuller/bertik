@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v24 (Max Eyes & Thumbs)</title>
+    <title>Bertik v25 (Eyes Fine-Tuning)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -26,7 +26,6 @@
 
         #liveVideo { transform: scaleX(-1); }
         
-        /* FIX NÁHLEDŮ: Musí být hodně vysoko (z-index 90), aby překryly video */
         #thumbPreview { 
             display: none; position: fixed; inset: 0; width: 100%; height: 100%; 
             object-fit: contain; background: #000; z-index: 90; 
@@ -47,7 +46,6 @@
         #layerTongue { z-index: 30; opacity: 0; }
         #layerEars { z-index: 11; opacity: 0; }
 
-        /* Zdroje očí (skryté v DOMu, ale hrající) */
         .source-video-hidden { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; }
 
         /* --- 3. UI --- */
@@ -335,7 +333,7 @@
             }
         }
 
-        // --- AVATAR (Alpha Maska + Zrychleno 2x + Rozsah 1.5x) ---
+        // --- AVATAR (Final Adjustment) ---
         document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
 
         function renderAvatarLoop() {
@@ -344,23 +342,22 @@
                 if (now - lastEyeUpdate > (1000/12)) {
                     let tx, ty;
                     if (now - lastMouseMoveTime > 3000) {
-                        // Roaming
+                        // Roaming (zmenšeno o 2.5x oproti v24)
                         if (now > roamTargetTime) {
-                            roamX = (Math.random()-0.5)*225; // Zvětšený rozsah
-                            roamY = (Math.random()-0.5)*120;
+                            roamX = (Math.random()-0.5)*90; 
+                            roamY = (Math.random()-0.5)*48;
                             roamTargetTime = now + 2000 + Math.random()*500;
                         }
                         tx = pupilX + (roamX - pupilX)*0.2; 
                         ty = pupilY + (roamY - pupilY)*0.2;
                     } else {
-                        // Sledování
+                        // Sledování (zvětšeno o 1.5x oproti v24)
                         const cx = window.innerWidth/2; const cy = window.innerHeight/2;
-                        // Range multiplier 3.0 (Zvětšený rozsah 1.5x oproti 2.0)
-                        tx = ((mouseX-cx)/100)*3.0; 
-                        ty = ((mouseY-cy)/100)*3.0;
+                        tx = ((mouseX-cx)/100)*4.5; 
+                        ty = ((mouseY-cy)/100)*4.5;
                     }
                     
-                    // Rychlost 0.3 (Dvojnásobná rychlost oproti 0.15)
+                    // Rychlost 0.3
                     pupilX += (tx - pupilX) * 0.3;
                     pupilY += (ty - pupilY) * 0.3;
 
@@ -371,12 +368,15 @@
                 ctxEyes.clearRect(0,0,W,H); 
                 
                 if(srcMask.readyState>=2 && (el.headB.style.opacity == 1 || isTongueActive)) {
-                    // NÁVRAT MASKY
+                    // Alpha Maska
                     ctxEyes.globalCompositeOperation = 'source-over';
                     ctxEyes.drawImage(srcMask,0,0,W,H); 
                     
                     ctxEyes.globalCompositeOperation = 'source-in'; 
-                    // Vykreslení zorniček do masky
+                    // Režim screen pro fix černé, pokud je alpha poškozená (pojistka)
+                    // Pokud je alpha OK, screen nevadí.
+                    // ctxEyes.globalCompositeOperation = 'screen'; // Lze zkusit, pokud je stále problém, ale 'source-in' je správně pro masku
+                    
                     ctxEyes.drawImage(srcPupils, 0 + pupilX*5, 0 + pupilY*5, 2048, 2048);
                     
                     ctxEyes.globalCompositeOperation = 'source-over';
@@ -415,7 +415,6 @@
                 el.thumb.style.display='none';
             } else {
                 const tIdx = Math.floor(idx/5)*5;
-                // FIX: ?t=... aby se nenačítala stará 404 cache
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg?t=${Date.now()}`;
             }
         });
