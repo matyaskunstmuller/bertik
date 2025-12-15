@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v25 (Eyes Fine-Tuning)</title>
+    <title>Bertik v27 (Eyes = Rec Indicator)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -26,9 +26,12 @@
 
         #liveVideo { transform: scaleX(-1); }
         
+        /* NÁHLEDY */
         #thumbPreview { 
-            display: none; position: fixed; inset: 0; width: 100%; height: 100%; 
-            object-fit: contain; background: #000; z-index: 90; 
+            display: none; position: absolute; bottom: 80px; left: 0; width: 160px; height: 90px;
+            object-fit: cover; background: #000; z-index: 200; 
+            border: 2px solid #fff; border-radius: 4px; pointer-events: none;
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
         }
 
         /* --- 2. AVATAR --- */
@@ -94,7 +97,7 @@
             100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
         }
 
-        .slider-wrapper { width: 100%; height: 30px; display: flex; align-items: center; }
+        .slider-wrapper { width: 100%; height: 30px; display: flex; align-items: center; position: relative; }
         input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; background: #fff; border-radius: 50%; margin-top: -10px; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
@@ -190,7 +193,8 @@
             </div>
             
             <div class="slider-wrapper">
-                <input type="range" id="slider" min="0" max="100" value="100" disabled>
+                <img id="thumbPreview">
+                <input type="range" id="slider" min="0" max="100" value="100">
             </div>
         </div>
     </div>
@@ -203,8 +207,9 @@
         const TOKEN = CAST_1 + CAST_2;
         const REPO = { owner: "matyaskunstmuller", name: "bertik" };
 
-        const STATE = { OFF: 0, LIVE: 1, PLAY: 2, TIME: 3 };
-        let state = STATE.OFF;
+        const VIEW = { LIVE: 0, PLAY: 1, TIME: 2 };
+        let viewState = VIEW.LIVE;
+        let isPowerOn = false; 
         
         let octokit, mediaRecorder, chunks = [];
         let memories = [];
@@ -255,6 +260,7 @@
             setInterval(updateClock, 1000);
             renderAvatarLoop();
             el.glow.style.display = 'block';
+            el.headB.style.opacity = 0; // Default sleep
         });
 
         document.getElementById('startBtn').addEventListener('click', async () => {
@@ -265,6 +271,7 @@
             downloadAllChunks();
             el.slider.value = el.slider.max; 
             document.getElementById('introLayer').classList.add('hidden');
+            await initCam();
         });
 
         document.getElementById('settingsIcon').addEventListener('click', () => { document.getElementById('introLayer').classList.remove('hidden'); });
@@ -277,140 +284,143 @@
             document.querySelectorAll('.video-layer').forEach(v => v.style.objectFit = mode);
         });
 
+        // --- OVLÁDÁNÍ ---
+
         el.btnPwr.addEventListener('click', () => {
-            if (state === STATE.OFF) setState(STATE.LIVE);
-            else setState(STATE.OFF);
+            isPowerOn = !isPowerOn;
+            el.btnPwr.style.backgroundImage = isPowerOn ? "url('assets/btn_power_on.png')" : "url('assets/btn_power_off.png')";
+            el.glow.style.display = isPowerOn ? 'none' : 'block';
+
+            if (isPowerOn) {
+                startRec(); startAnalysis();
+            } else {
+                stopRec(); stopAnalysis();
+            }
+            updateAvatarState();
         });
 
         el.btnTime.addEventListener('click', () => {
-            if (state === STATE.OFF) return;
-            if (state === STATE.TIME) stopTimelapseAndShow(); 
-            else setState(STATE.TIME);
+            if (viewState === VIEW.TIME) stopTimelapseAndShow(); 
+            else setViewState(VIEW.TIME);
         });
 
         el.btnSim.addEventListener('click', () => {
-            if (state !== STATE.OFF) findSimilar();
+            if (isPowerOn) findSimilar();
         });
 
-        async function setState(mode) {
-            state = mode;
+        function setViewState(mode) {
+            viewState = mode;
             
             const show = (e) => { e.classList.remove('hidden'); e.classList.add('visible'); };
             const hide = (e) => { e.classList.remove('visible'); e.classList.add('hidden'); };
 
             hide(el.live); hide(el.play); hide(el.chunk);
-            el.thumb.style.display = 'none';
             el.play.pause(); el.chunk.pause();
+            el.thumb.style.display = 'none';
 
-            el.btnPwr.style.backgroundImage = (mode===STATE.OFF) ? "url('assets/btn_power_off.png')" : "url('assets/btn_power_on.png')";
-            el.btnTime.style.backgroundImage = (mode===STATE.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
-            el.glow.style.display = (mode === STATE.OFF) ? 'block' : 'none';
+            el.btnTime.style.backgroundImage = (mode===VIEW.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
 
-            if (mode === STATE.OFF) {
-                stopRec(); stopAnalysis();
-                el.headS.style.display = 'block';
-                el.headB.style.opacity=0; el.eyes.style.opacity=0; el.ears.style.opacity=0;
-                el.slider.disabled = true;
-                if(el.live.srcObject) el.live.srcObject.getTracks().forEach(t=>t.stop());
-
-            } else if (mode === STATE.LIVE) {
-                await initCam();
-                startRec(); startAnalysis();
+            if (mode === VIEW.LIVE) {
                 show(el.live);
-                el.headS.style.display = 'none';
-                el.headB.style.opacity=1; el.eyes.style.opacity=1; el.ears.style.opacity=1;
-                el.headB.play(); el.ears.play();
-                el.slider.disabled = false;
                 el.slider.value = memories.length;
-
-            } else if (mode === STATE.PLAY) {
-                stopRec();
+            } else if (mode === VIEW.PLAY) {
                 show(el.play);
-            
-            } else if (mode === STATE.TIME) {
-                stopRec();
+            } else if (mode === VIEW.TIME) {
                 runTimelapse();
+            }
+            
+            updateAvatarState();
+        }
+
+        function updateAvatarState() {
+            // FIX: Avatar je vzhůru VŽDY, když je Power ON (indikuje nahrávání)
+            const isAwake = isPowerOn;
+
+            if (isAwake) {
+                el.headS.style.display = 'none';
+                el.headB.style.opacity = 1;
+                el.eyes.style.opacity = 1; el.ears.style.opacity = 1;
+                el.headB.play(); el.ears.play();
+            } else {
+                el.headS.style.display = 'block';
+                el.headB.style.opacity = 0;
+                el.eyes.style.opacity = 0; el.ears.style.opacity = 0;
             }
         }
 
-        // --- AVATAR (Final Adjustment) ---
+        // --- AVATAR ---
         document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; lastMouseMoveTime = Date.now(); });
 
         function renderAvatarLoop() {
-            if(state !== STATE.OFF) {
-                const now = Date.now();
-                if (now - lastEyeUpdate > (1000/12)) {
-                    let tx, ty;
-                    if (now - lastMouseMoveTime > 3000) {
-                        // Roaming (zmenšeno o 2.5x oproti v24)
-                        if (now > roamTargetTime) {
-                            roamX = (Math.random()-0.5)*90; 
-                            roamY = (Math.random()-0.5)*48;
-                            roamTargetTime = now + 2000 + Math.random()*500;
-                        }
-                        tx = pupilX + (roamX - pupilX)*0.2; 
-                        ty = pupilY + (roamY - pupilY)*0.2;
-                    } else {
-                        // Sledování (zvětšeno o 1.5x oproti v24)
-                        const cx = window.innerWidth/2; const cy = window.innerHeight/2;
-                        tx = ((mouseX-cx)/100)*4.5; 
-                        ty = ((mouseY-cy)/100)*4.5;
+            const now = Date.now();
+            if (now - lastEyeUpdate > (1000/12)) {
+                let tx, ty;
+                if (now - lastMouseMoveTime > 3000) {
+                    if (now > roamTargetTime) {
+                        roamX = (Math.random()-0.5)*90; 
+                        roamY = (Math.random()-0.5)*48;
+                        roamTargetTime = now + 2000 + Math.random()*500;
                     }
-                    
-                    // Rychlost 0.3
-                    pupilX += (tx - pupilX) * 0.3;
-                    pupilY += (ty - pupilY) * 0.3;
-
-                    lastEyeUpdate = now;
+                    tx = pupilX + (roamX - pupilX)*0.2; 
+                    ty = pupilY + (roamY - pupilY)*0.2;
+                } else {
+                    const cx = window.innerWidth/2; const cy = window.innerHeight/2;
+                    tx = ((mouseX-cx)/100)*4.5; 
+                    ty = ((mouseY-cy)/100)*4.5;
                 }
                 
-                const W = el.eyes.width; const H = el.eyes.height;
-                ctxEyes.clearRect(0,0,W,H); 
+                pupilX += (tx - pupilX) * 0.3;
+                pupilY += (ty - pupilY) * 0.3;
+                lastEyeUpdate = now;
+            }
+            
+            const W = el.eyes.width; const H = el.eyes.height;
+            ctxEyes.clearRect(0,0,W,H); 
+            
+            // Kreslit oči pokud je Power ON (protože je vzhůru) nebo jazyk
+            if(srcMask.readyState>=2 && (el.headB.style.opacity == 1 || isTongueActive)) {
+                ctxEyes.globalCompositeOperation = 'source-over';
+                ctxEyes.drawImage(srcMask,0,0,W,H); 
                 
-                if(srcMask.readyState>=2 && (el.headB.style.opacity == 1 || isTongueActive)) {
-                    // Alpha Maska
-                    ctxEyes.globalCompositeOperation = 'source-over';
-                    ctxEyes.drawImage(srcMask,0,0,W,H); 
-                    
-                    ctxEyes.globalCompositeOperation = 'source-in'; 
-                    // Režim screen pro fix černé, pokud je alpha poškozená (pojistka)
-                    // Pokud je alpha OK, screen nevadí.
-                    // ctxEyes.globalCompositeOperation = 'screen'; // Lze zkusit, pokud je stále problém, ale 'source-in' je správně pro masku
-                    
-                    ctxEyes.drawImage(srcPupils, 0 + pupilX*5, 0 + pupilY*5, 2048, 2048);
-                    
-                    ctxEyes.globalCompositeOperation = 'source-over';
-                }
+                ctxEyes.globalCompositeOperation = 'source-in'; 
+                ctxEyes.drawImage(srcPupils, 0 + pupilX*5, 0 + pupilY*5, 2048, 2048);
+                
+                ctxEyes.globalCompositeOperation = 'source-over';
             }
             requestAnimationFrame(renderAvatarLoop);
         }
 
         function triggerBlink() {
-            if(state===STATE.OFF) return;
+            if(!isPowerOn) return;
             el.headB.style.opacity=0; el.eyes.style.opacity=0; 
             el.blink.src = "assets/blink_anim.webm"; el.blink.style.opacity=1; el.blink.play();
             el.blink.onended = () => { el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
         }
         function triggerTongue() {
-            if(state===STATE.OFF) return;
+            if(!isPowerOn) return;
             isTongueActive = true; 
             el.headB.style.opacity=0; 
             el.tongue.src = "assets/tongue_action.webm"; el.tongue.style.opacity=1; el.tongue.play();
             el.tongue.onended = () => { 
                 isTongueActive = false; 
-                el.tongue.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; 
+                el.tongue.style.opacity=0; if(isPowerOn) { el.headB.style.opacity=1; el.eyes.style.opacity=1; }
             };
         }
         setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
 
         // --- PŘEHRÁVÁNÍ & NÁHLEDY ---
         el.slider.addEventListener('input', () => {
-            if(state===STATE.OFF) return;
-            if(state!==STATE.PLAY) setState(STATE.PLAY);
+            if(viewState !== VIEW.PLAY) setViewState(VIEW.PLAY);
+            
             el.play.classList.remove('visible'); el.play.classList.add('hidden');
             el.thumb.style.display='block';
             
             const idx = parseInt(el.slider.value);
+            
+            const percent = (idx / el.slider.max);
+            const offset = percent * (el.slider.offsetWidth - 30); 
+            el.thumb.style.left = (el.slider.offsetLeft + offset - 65) + 'px';
+
             if(idx >= memories.length) {
                 el.thumb.style.display='none';
             } else {
@@ -421,7 +431,7 @@
 
         el.slider.addEventListener('change', () => {
             const idx = parseInt(el.slider.value);
-            if(idx >= memories.length) setState(STATE.LIVE);
+            if(idx >= memories.length) setViewState(VIEW.LIVE);
             else playMem(idx);
         });
 
@@ -437,7 +447,7 @@
         el.play.onended = () => {
             const next = parseInt(el.slider.value)+1;
             if(next < memories.length) { el.slider.value=next; playMem(next); }
-            else setState(STATE.LIVE);
+            else setViewState(VIEW.LIVE);
         };
 
         function findSimilar() {
@@ -449,6 +459,7 @@
                 if(diff<min){min=diff; best=i;}
             });
             if(best===0) best=Math.floor(Math.random()*(memories.length-1));
+            setViewState(VIEW.PLAY);
             el.slider.value=best; playMem(best); triggerTongue();
         }
 
@@ -480,7 +491,7 @@
         }
 
         async function playNextChunk() {
-            if(state !== STATE.TIME) return;
+            if(viewState !== VIEW.TIME) return;
 
             let src = chunkCache.get(chunkId);
             if(!src) src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
@@ -488,14 +499,12 @@
             el.chunk.src = src;
             el.chunk.classList.remove('hidden'); el.chunk.classList.add('visible');
             
-            if(chunkCache.get(chunkId+1)) {
-                el.preload.src = chunkCache.get(chunkId+1); 
-            }
+            if(chunkCache.get(chunkId+1)) el.preload.src = chunkCache.get(chunkId+1); 
 
-            try { await el.chunk.play(); } catch(e) { setState(STATE.LIVE); return; }
+            try { await el.chunk.play(); } catch(e) { setViewState(VIEW.LIVE); return; }
 
             const anim = setInterval(() => {
-                if(state !== STATE.TIME || el.chunk.paused) { clearInterval(anim); return; }
+                if(viewState !== VIEW.TIME || el.chunk.paused) { clearInterval(anim); return; }
                 const p = el.chunk.currentTime / (el.chunk.duration || 1);
                 el.slider.value = (chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE);
             }, 100);
@@ -504,10 +513,10 @@
                 clearInterval(anim);
                 chunkId++;
                 if(chunkId < totalChunks) playNextChunk();
-                else setState(STATE.LIVE);
+                else setViewState(VIEW.LIVE);
             };
             
-            el.chunk.onerror = () => { setState(STATE.LIVE); };
+            el.chunk.onerror = () => { setViewState(VIEW.LIVE); };
         }
 
         function stopTimelapseAndShow() {
@@ -518,13 +527,12 @@
             if (finalIdx >= memories.length) finalIdx = memories.length - 1;
             if (finalIdx < 0) finalIdx = 0;
 
-            setState(STATE.PLAY).then(() => {
-                el.slider.value = finalIdx;
-                playMem(finalIdx);
-            });
+            setViewState(VIEW.PLAY);
+            el.slider.value = finalIdx;
+            playMem(finalIdx);
         }
 
-        // --- HW ---
+        // --- HW & REC ---
         async function loadDevices() {
             try {
                 const d=await navigator.mediaDevices.enumerateDevices();
@@ -540,7 +548,7 @@
 
         async function initCam() {
             try {
-                if(el.live.srcObject)el.live.srcObject.getTracks().forEach(t=>t.stop());
+                if(el.live.srcObject) return; 
                 const stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:camId}},audio:true});
                 el.live.srcObject=stream;
                 const ac=new AudioContext();
@@ -554,7 +562,7 @@
         function startAnalysis() {
             clearInterval(analysisInterval);
             analysisInterval=setInterval(()=>{
-                if(state!==STATE.LIVE)return;
+                if(!isPowerOn) return; 
                 ctxAn.drawImage(el.live,0,0,64,64);
                 const d=ctxAn.getImageData(0,0,64,64).data;
                 let r=0,g=0,b=0;
@@ -574,15 +582,21 @@
 
         function startRec() {
             if(!el.live.srcObject)return;
+            if(mediaRecorder && mediaRecorder.state !== 'inactive') return;
+            
             mediaRecorder=new MediaRecorder(el.live.srcObject,{mimeType:'video/webm;codecs=vp9'});
             mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
             mediaRecorder.onstop=upload;
             mediaRecorder.start();
+            
             document.getElementById('uploadInd').style.background = 'yellow';
             document.getElementById('uploadInd').innerText = 'REC';
             document.getElementById('uploadInd').style.display = 'block';
+            
             clearInterval(recInterval);
-            recInterval=setInterval(()=>{if(mediaRecorder.state==='recording')mediaRecorder.stop();},15000);
+            recInterval=setInterval(()=>{
+                if(mediaRecorder.state==='recording') mediaRecorder.stop();
+            },15000);
         }
         function stopRec(){
             if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
@@ -591,7 +605,8 @@
         }
 
         async function upload() {
-            if(chunks.length===0||!octokit||state!==STATE.LIVE)return;
+            if(chunks.length===0||!octokit)return;
+            
             document.getElementById('uploadInd').style.background = 'orange';
             document.getElementById('uploadInd').innerText = 'UPLOADING...';
             const blob=new Blob(chunks,{type:'video/webm'}); chunks=[];
@@ -606,12 +621,19 @@
                     });
                     memories.push({filename:nm,timestamp:Date.now()});
                     el.slider.max=memories.length;
-                    if(state===STATE.LIVE)el.slider.value=memories.length;
+                    if(viewState===VIEW.LIVE) el.slider.value=memories.length;
+                    
                     document.getElementById('uploadInd').style.background = 'lime';
                     document.getElementById('uploadInd').innerText = 'OK';
-                    setTimeout(() => { if(state===STATE.LIVE){document.getElementById('uploadInd').style.background='yellow';document.getElementById('uploadInd').innerText='REC';}}, 2000);
+                    setTimeout(() => { 
+                        if(isPowerOn){
+                            document.getElementById('uploadInd').style.background='yellow';
+                            document.getElementById('uploadInd').innerText='REC';
+                        }
+                    }, 2000);
                 }catch(e){console.error(e);}
-                if(state===STATE.LIVE)mediaRecorder.start();
+                
+                if(isPowerOn) mediaRecorder.start();
             };
         }
 
