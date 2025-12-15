@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v27 (Eyes = Rec Indicator)</title>
+    <title>Bertik v28 (Final UX)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; user-select: none; }
 
-        /* --- 1. VIDEA --- */
+        /* --- 1. VIDEA & NÁHLEDY --- */
         .video-layer { 
             position: fixed; inset: 0; width: 100%; height: 100%;
             z-index: 1; background: #000; object-fit: cover; 
@@ -26,15 +26,13 @@
 
         #liveVideo { transform: scaleX(-1); }
         
-        /* NÁHLEDY */
+        /* NÁHLED NA CELOU OBRAZOVKU (Nad videem, pod avatarem) */
         #thumbPreview { 
-            display: none; position: absolute; bottom: 80px; left: 0; width: 160px; height: 90px;
-            object-fit: cover; background: #000; z-index: 200; 
-            border: 2px solid #fff; border-radius: 4px; pointer-events: none;
-            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+            display: none; position: fixed; inset: 0; width: 100%; height: 100%; 
+            object-fit: cover; background: #000; z-index: 5; 
         }
 
-        /* --- 2. AVATAR --- */
+        /* --- 2. AVATAR (Z-INDEX 10) --- */
         .center-stage { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             width: 85vh; height: 85vh; pointer-events: none; z-index: 10;
@@ -51,7 +49,7 @@
 
         .source-video-hidden { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; }
 
-        /* --- 3. UI --- */
+        /* --- 3. UI (Z-INDEX 100) --- */
         #uiLayer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
         .interactive { pointer-events: auto; cursor: pointer; }
 
@@ -105,25 +103,55 @@
         #uploadInd { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 11px; display: none; z-index: 200; background: orange; color: black; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
         #cacheStatus { font-size: 10px; color: #555; margin-top: 5px; }
 
-        #introLayer { position: fixed; inset: 0; background: #000; z-index: 5000; padding: 40px; display: flex; flex-direction: column; }
+        /* --- INTRO SCREEN --- */
+        #introLayer { 
+            position: fixed; inset: 0; background: #000; z-index: 5000; 
+            padding: 40px; display: flex; flex-direction: column; overflow-y: auto;
+        }
         #introLayer.hidden { display: none; }
-        .intro-top { display: flex; justify-content: space-between; width: 100%; }
-        .intro-title h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
-        .intro-desc { width: 300px; font-size: 13px; color: #aaa; margin-top: 20px; line-height: 1.5; }
-        .intro-opts { text-align: right; display: flex; flex-direction: column; gap: 10px; }
-        .opt-row select { background: transparent; border: none; color: #fff; font-family: inherit; text-align: right; cursor: pointer; }
-        #startBtn { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); background: transparent; border: none; color: #fff; font-size: 16px; font-weight: 700; letter-spacing: 3px; cursor: pointer; padding: 20px; }
-        #analysisCanvas { display: none; }
         
+        .intro-top { display: flex; justify-content: space-between; width: 100%; margin-bottom: 40px; }
+        .intro-title h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+        .intro-opts { text-align: right; }
+        .opt-row select { background: transparent; border: none; color: #fff; font-family: inherit; text-align: right; cursor: pointer; }
+
+        .guide-container {
+            display: flex; flex-direction: column; gap: 25px; margin-top: 20px; max-width: 500px;
+        }
+        .guide-item { display: flex; align-items: center; gap: 20px; }
+        .guide-icon { width: 60px; height: 60px; background-size: contain; background-repeat: no-repeat; background-position: center; flex-shrink: 0; }
+        .guide-text { font-size: 13px; color: #ccc; line-height: 1.4; }
+        .guide-text strong { color: #fff; display: block; margin-bottom: 2px; }
+
+        .legal-section {
+            margin-top: auto; padding-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+        }
+        .legal-row { 
+            display: flex; align-items: flex-start; gap: 10px; max-width: 400px; 
+            font-size: 11px; color: #aaa; text-align: left;
+        }
+        .legal-row input { margin-top: 2px; cursor: pointer; }
+        .legal-row a { color: #fff; text-decoration: underline; }
+
+        #startBtn { 
+            background: transparent; border: 2px solid #fff; color: #fff; 
+            font-size: 16px; font-weight: 700; letter-spacing: 3px; 
+            cursor: pointer; padding: 15px 40px; transition: all 0.2s;
+            opacity: 0.5; pointer-events: none; /* Default disabled */
+        }
+        #startBtn.active { opacity: 1; pointer-events: auto; background: rgba(255,255,255,0.1); }
+        #startBtn.active:hover { background: #fff; color: #000; }
+
         @media (max-width: 600px) {
-            .intro-top { flex-direction: column; gap: 30px; }
-            .intro-desc { width: 100%; }
+            .intro-top { flex-direction: column; gap: 20px; margin-bottom: 20px; }
             .intro-opts { text-align: left; }
             .center-stage { width: 90vw; height: 90vw; }
             .bottom-left { left: 15px; right: 15px; bottom: 20px; gap: 15px; }
             .buttons-row { width: 100%; justify-content: space-between; gap: 0; }
             .big-btn { width: 85px; height: 85px; }
             #powerGlow { width: 150px; height: 150px; }
+            .guide-item { gap: 15px; }
+            .guide-icon { width: 50px; height: 50px; }
         }
     </style>
 </head>
@@ -133,14 +161,48 @@
         <div class="intro-top">
             <div class="intro-title">
                 <h1>Online Bertík</h1>
-                <div class="intro-desc">Program neustále nahrává a analyzuje své okolí. Podle toho, co vidí a slyší, může vyhledat a přehrát nejpodobnější záznam ze sdílené paměti.</div>
             </div>
             <div class="intro-opts interactive">
                 <div class="opt-row">KAMERA <select id="selCam"><option>Načítám...</option></select></div>
                 <div class="opt-row">AUDIO <select id="selMic"><option>Načítám...</option></select></div>
             </div>
         </div>
-        <button id="startBtn" class="interactive">SPUSTIT</button>
+
+        <div class="guide-container">
+            <div class="guide-item">
+                <div class="guide-icon" style="background-image: url('assets/btn_power_off.png')"></div>
+                <div class="guide-text">
+                    <strong>Vypínač programu</strong>
+                    Probere program a spustí záznam.
+                </div>
+            </div>
+            <div class="guide-item">
+                <div class="guide-icon" style="background-image: url('assets/btn_time_off.png')"></div>
+                <div class="guide-text">
+                    <strong>Časosběr</strong>
+                    Spustí zrychleně celou knihovnu vzpomínek.
+                </div>
+            </div>
+            <div class="guide-item">
+                <div class="guide-icon" style="background-image: url('assets/btn_sim_idle.png')"></div>
+                <div class="guide-text">
+                    <strong>Evokace</strong>
+                    Pustí nejpodobnější vzpomínku podle aktuálního vnímání.
+                </div>
+            </div>
+        </div>
+
+        <div class="legal-section">
+            <div class="legal-row interactive">
+                <input type="checkbox" id="legalCheck">
+                <label for="legalCheck">
+                    Souhlasím s nahráváním záznamu a jeho zveřejněním v rámci tohoto projektu. 
+                    Beru na vědomí, že záznam je trvalý, veřejně dostupný a nelze jej zpětně odstranit. 
+                    <a href="legal.html" target="_blank">Podrobné právní informace</a>
+                </label>
+            </div>
+            <button id="startBtn" class="interactive">SPUSTIT</button>
+        </div>
     </div>
 
     <div id="videoContainer">
@@ -193,7 +255,6 @@
             </div>
             
             <div class="slider-wrapper">
-                <img id="thumbPreview">
                 <input type="range" id="slider" min="0" max="100" value="100">
             </div>
         </div>
@@ -245,7 +306,9 @@
             btnPwr: document.getElementById('btnPwr'),
             btnTime: document.getElementById('btnTime'),
             btnSim: document.getElementById('btnSim'),
-            glow: document.getElementById('powerGlow')
+            glow: document.getElementById('powerGlow'),
+            legalCheck: document.getElementById('legalCheck'),
+            startBtn: document.getElementById('startBtn')
         };
         const ctxEyes = el.eyes.getContext('2d');
         const srcMask = document.getElementById('srcMask');
@@ -260,28 +323,38 @@
             setInterval(updateClock, 1000);
             renderAvatarLoop();
             el.glow.style.display = 'block';
-            el.headB.style.opacity = 0; // Default sleep
+            el.headB.style.opacity = 0; 
         });
 
-        document.getElementById('startBtn').addEventListener('click', async () => {
+        // Právní pojistka
+        el.legalCheck.addEventListener('change', () => {
+            if (el.legalCheck.checked) el.startBtn.classList.add('active');
+            else el.startBtn.classList.remove('active');
+        });
+
+        el.startBtn.addEventListener('click', async () => {
+            if (!el.legalCheck.checked) return; // Pojistka
+            
             camId = document.getElementById('selCam').value;
             micId = document.getElementById('selMic').value;
             srcMask.play(); srcPupils.play(); 
+            
             await loadDB();
             downloadAllChunks();
             el.slider.value = el.slider.max; 
             document.getElementById('introLayer').classList.add('hidden');
+            
             await initCam();
         });
 
         document.getElementById('settingsIcon').addEventListener('click', () => { document.getElementById('introLayer').classList.remove('hidden'); });
         document.getElementById('statsToggle').addEventListener('click', () => { el.statsMenu.classList.toggle('visible'); });
-        
         el.fitBtn.addEventListener('click', () => {
             isCover = !isCover;
             const mode = isCover ? 'cover' : 'contain';
             el.fitBtn.innerText = isCover ? 'VYPLNIT' : 'CELÉ';
             document.querySelectorAll('.video-layer').forEach(v => v.style.objectFit = mode);
+            el.thumb.style.objectFit = mode;
         });
 
         // --- OVLÁDÁNÍ ---
@@ -296,7 +369,9 @@
             } else {
                 stopRec(); stopAnalysis();
             }
-            updateAvatarState();
+            
+            // Refresh pohledu (např. zčernání obrazovky)
+            setViewState(viewState);
         });
 
         el.btnTime.addEventListener('click', () => {
@@ -321,7 +396,11 @@
             el.btnTime.style.backgroundImage = (mode===VIEW.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
 
             if (mode === VIEW.LIVE) {
-                show(el.live);
+                // Kamera se ukáže jen když je zapnuto
+                if (isPowerOn) show(el.live);
+                else {
+                    // Černo
+                }
                 el.slider.value = memories.length;
             } else if (mode === VIEW.PLAY) {
                 show(el.play);
@@ -333,10 +412,8 @@
         }
 
         function updateAvatarState() {
-            // FIX: Avatar je vzhůru VŽDY, když je Power ON (indikuje nahrávání)
-            const isAwake = isPowerOn;
-
-            if (isAwake) {
+            // Avatar je vzhůru VŽDY, když je Power ON
+            if (isPowerOn) {
                 el.headS.style.display = 'none';
                 el.headB.style.opacity = 1;
                 el.eyes.style.opacity = 1; el.ears.style.opacity = 1;
@@ -377,7 +454,6 @@
             const W = el.eyes.width; const H = el.eyes.height;
             ctxEyes.clearRect(0,0,W,H); 
             
-            // Kreslit oči pokud je Power ON (protože je vzhůru) nebo jazyk
             if(srcMask.readyState>=2 && (el.headB.style.opacity == 1 || isTongueActive)) {
                 ctxEyes.globalCompositeOperation = 'source-over';
                 ctxEyes.drawImage(srcMask,0,0,W,H); 
@@ -408,19 +484,15 @@
         }
         setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
 
-        // --- PŘEHRÁVÁNÍ & NÁHLEDY ---
+        // --- PŘEHRÁVÁNÍ & NÁHLEDY (FULLSCREEN FIX) ---
         el.slider.addEventListener('input', () => {
             if(viewState !== VIEW.PLAY) setViewState(VIEW.PLAY);
             
             el.play.classList.remove('visible'); el.play.classList.add('hidden');
-            el.thumb.style.display='block';
+            el.thumb.style.display='block'; // Zobrazit full-screen náhled
             
             const idx = parseInt(el.slider.value);
             
-            const percent = (idx / el.slider.max);
-            const offset = percent * (el.slider.offsetWidth - 30); 
-            el.thumb.style.left = (el.slider.offsetLeft + offset - 65) + 'px';
-
             if(idx >= memories.length) {
                 el.thumb.style.display='none';
             } else {
@@ -532,7 +604,7 @@
             playMem(finalIdx);
         }
 
-        // --- HW & REC ---
+        // --- HW ---
         async function loadDevices() {
             try {
                 const d=await navigator.mediaDevices.enumerateDevices();
