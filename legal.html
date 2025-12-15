@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Právní doložka | Bertik</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            color: #ccc;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            color: #fff;
+            margin-top: 40px;
+            font-size: 18px;
+        }
+
+        p {
+            margin-bottom: 20px;
+            text-align: justify;
+        }
+
+        .highlight-box {
+            border: 1px solid #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            color: #ffcccc;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 4px;
+        }
+
+        .highlight-box strong {
+            color: #ff4444;
+            display: block;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        ul {
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        a.back-btn {
+            display: inline-block;
+            margin-top: 40px;
+            color: #fff;
+            text-decoration: none;
+            border: 1px solid #fff;
+            padding: 10px 30px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+        }
+
+        a.back-btn:hover {
+            background: #fff;
+            color: #000;
+        }
+
+        .footer {
+            margin-top: 60px;
+            border-top: 1px solid #333;
+            padding-top: 20px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Podmínky užití a Ochrana soukromí</h1>
+
+        <p>
+            Vstupem do aplikace "Online Bertik" (dále jen "Aplikace") a zaškrtnutím souhlasu na úvodní obrazovce stvrzujete, že jste se seznámili s těmito podmínkami a bezvýhradně je přijímáte.
+        </p>
+
+        <div class="highlight-box">
+            <strong>Důležité upozornění</strong>
+            <p>
+                Tato aplikace je experimentální umělecký projekt zaměřený na sdílenou paměť. 
+                Všechny záznamy pořízené touto aplikací jsou <b>okamžitě a automaticky odesílány do veřejného úložiště</b>. 
+                Tím se stávají veřejně přístupnými pro kohokoliv na internetu.
+            </p>
+        </div>
+
+        <h2>1. Povaha dat a jejich zpracování</h2>
+        <p>Aplikace nahrává krátké video a audio segmenty ("Vzpomínky") z kamery a mikrofonu vašeho zařízení. Tyto záznamy jsou:</p>
+        <ul>
+            <li>Odeslány na servery třetí strany (GitHub).</li>
+            <li>Uloženy ve veřejně přístupném repozitáři zdrojového kódu.</li>
+            <li>Zpracovány algoritmem pro analýzu barev a jasu.</li>
+            <li>Dostupné k přehrání ostatním uživatelům Aplikace v rámci funkcí "Časosběr" a "Evokace".</li>
+        </ul>
+
+        <h2>2. Nemožnost vymazání (Imutabilita)</h2>
+        <p>
+            Vzhledem k technické povaze technologie (Git/Blockchain princip historie verzí) berete na vědomí, že:
+        </p>
+        <ul>
+            <li>Jakmile je záznam odeslán, stává se trvalou součástí historie projektu.</li>
+            <li><strong>Záznam není možné na žádost uživatele jednoduše smazat ani upravit.</strong></li>
+            <li>Data mohou být archivována, kopírována nebo dále šířena třetími stranami mimo kontrolu autora Aplikace.</li>
+        </ul>
+
+        <h2>3. Souhlas se zveřejněním (GDPR a Osobnostní práva)</h2>
+        <p>
+            Použitím Aplikace výslovně udělujete souhlas s pořízením a šířením vaší podoby a zvukového záznamu.
+        </p>
+        <ul>
+            <li>Prohlašujete, že jste starší 18 let, nebo aplikaci užíváte pod dohledem zákonného zástupce.</li>
+            <li>Vzdáváte se nároku na jakoukoliv odměnu za použití vašeho záznamu v rámci tohoto uměleckého díla.</li>
+            <li>Chápete, že se dobrovolně stáváte součástí veřejné, sdílené digitální paměti.</li>
+        </ul>
+
+        <h2>4. Vyloučení odpovědnosti</h2>
+        <p>
+            Autor projektu nenese odpovědnost za obsah nahraný uživateli. Aplikace je poskytována "tak jak je" (as-is), bez jakékoli záruky. Uživatel nese plnou odpovědnost za to, co před kamerou zaznamená.
+        </p>
+
+        <a href="index.html" class="back-btn">Zpět do aplikace</a>
+
+        <div class="footer">
+            Bertik Memory System © 2025 | Matyáš Kunstmüller | Experimentální projekt
+        </div>
+    </div>
+
+</body>
+</html>
