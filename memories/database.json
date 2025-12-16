@@ -15528,5 +15528,75 @@
       "motion": 50,
       "brightness": 50
     }
+  },
+  {
+    "filename": "mem_1765893848064.webm",
+    "timestamp": 1765893848064,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765893863052.webm",
+    "timestamp": 1765893863052,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765893878055.webm",
+    "timestamp": 1765893878055,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765893893056.webm",
+    "timestamp": 1765893893056,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765893908055.webm",
+    "timestamp": 1765893908055,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765893923060.webm",
+    "timestamp": 1765893923060,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1765893938053.webm",
+    "timestamp": 1765893938053,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
   }
 ]
