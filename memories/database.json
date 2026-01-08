@@ -16888,5 +16888,45 @@
       "motion": 50,
       "brightness": 50
     }
+  },
+  {
+    "filename": "mem_1767868059487.webm",
+    "timestamp": 1767868059487,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1767868085683.webm",
+    "timestamp": 1767868085683,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1767868137529.webm",
+    "timestamp": 1767868137529,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1767868152521.webm",
+    "timestamp": 1767868152521,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
   }
 ]
