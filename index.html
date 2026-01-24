@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bertik v30 (Auto-Select & Intro Links)</title>
+    <title>Bertik</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
@@ -251,16 +251,31 @@
     
     <img id="thumbPreview">
 
-    <video id="srcMask" class="source-video-hidden" src="assets/eyes_alpha_channel.webm" loop muted playsinline></video>
-    <video id="srcPupils" class="source-video-hidden" src="assets/eyes_zornicky.webm" loop muted playsinline></video>
+    <video id="srcMask" class="source-video-hidden" loop muted playsinline>
+        <source src="assets/eyes_alpha_channel.mov" type='video/quicktime; codecs="hvc1"'>
+        <source src="assets/eyes_alpha_channel.webm" type="video/webm">
+    </video>
+    
+    <video id="srcPupils" class="source-video-hidden" loop muted playsinline>
+        <source src="assets/eyes_zornicky.webm" type="video/webm">
+    </video>
 
     <div class="center-stage">
         <img id="headSleep" class="char-part" src="assets/head_sleep.png">
-        <video id="layerEars" class="char-part" src="assets/ears_active.webm" loop muted playsinline></video>
-        <video id="headBase" class="char-part" src="assets/head_idle.webm" loop muted playsinline></video>
+        
+        <video id="layerEars" class="char-part" loop muted playsinline>
+            <source src="assets/ears_active.mov" type='video/quicktime; codecs="hvc1"'>
+            <source src="assets/ears_active.webm" type="video/webm">
+        </video>
+        
+        <video id="headBase" class="char-part" loop muted playsinline>
+            <source src="assets/head_idle.mov" type='video/quicktime; codecs="hvc1"'>
+            <source src="assets/head_idle.webm" type="video/webm">
+        </video>
+        
         <canvas id="eyesCanvas" class="char-part" width="2048" height="2048"></canvas>
-        <video id="layerBlink" class="char-part" src="" muted playsinline></video>
-        <video id="layerTongue" class="char-part" src="" muted playsinline></video>
+        <video id="layerBlink" class="char-part" muted playsinline></video>
+        <video id="layerTongue" class="char-part" muted playsinline></video>
     </div>
 
     <div id="uiLayer">
@@ -354,6 +369,17 @@
         const ctxAn = document.getElementById('analysisCanvas').getContext('2d');
         let stats = { bri:0, vol:0 };
         let analyser, dataArray;
+
+        // --- ZMĚNA 4: Detekce podpory HEVC (pro dynamická videa v JS) ---
+        const videoExt = (function() {
+            const v = document.createElement('video');
+            // Pokud prohlížeč tvrdí, že umí HEVC kodek 'hvc1', použijeme MOV. Jinak WEBM.
+            if (v.canPlayType('video/quicktime; codecs="hvc1"') === "probably" || 
+                v.canPlayType('video/quicktime; codecs="hvc1"') === "maybe") {
+                return "mov";
+            }
+            return "webm";
+        })();
 
         document.addEventListener("DOMContentLoaded", () => {
             if(window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
@@ -506,14 +532,22 @@
         function triggerBlink() {
             if(!isPowerOn) return;
             el.headB.style.opacity=0; el.eyes.style.opacity=0; 
-            el.blink.src = "assets/blink_anim.webm"; el.blink.style.opacity=1; el.blink.play();
+            
+            // ZMĚNA 5: Použití dynamické přípony
+            el.blink.src = `assets/blink_anim.${videoExt}`; 
+            
+            el.blink.style.opacity=1; el.blink.play();
             el.blink.onended = () => { el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
         }
         function triggerTongue() {
             if(!isPowerOn) return;
             isTongueActive = true; 
             el.headB.style.opacity=0; 
-            el.tongue.src = "assets/tongue_action.webm"; el.tongue.style.opacity=1; el.tongue.play();
+            
+            // ZMĚNA 6: Použití dynamické přípony
+            el.tongue.src = `assets/tongue_action.${videoExt}`; 
+            
+            el.tongue.style.opacity=1; el.tongue.play();
             el.tongue.onended = () => { 
                 isTongueActive = false; 
                 el.tongue.style.opacity=0; if(isPowerOn) { el.headB.style.opacity=1; el.eyes.style.opacity=1; }
