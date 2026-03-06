@@ -14,9 +14,15 @@ if (!fs.existsSync(THUMB_DIR)) fs.mkdirSync(THUMB_DIR, { recursive: true });
 // Funkce na extrakci barvy pro podobnost
 function extractColor(vidPath) {
     try {
-        const buffer = execSync(`ffmpeg -v error -ss 0 -i "${vidPath}" -vframes 1 -vf scale=1:1 -f image2pipe -vcodec rawvideo -pix_fmt rgb24 -`);
-        return { r: buffer[0], g: buffer[1], b: buffer[2] };
-    } catch (e) { return null; }
+        // Odstraněn parametr -ss 0, který dělá problémy u syrových WebM z prohlížeče
+        const buffer = execSync(`ffmpeg -i "${vidPath}" -vframes 1 -vf scale=1:1 -f image2pipe -vcodec rawvideo -pix_fmt rgb24 -`, { stdio: ['pipe', 'pipe', 'ignore'] });
+        if (buffer.length >= 3) {
+            return { r: buffer[0], g: buffer[1], b: buffer[2] };
+        }
+        return null;
+    } catch (e) { 
+        return null; 
+    }
 }
 
 function getDirSizeMB(dir) {
@@ -76,12 +82,19 @@ if (currentSize > LIMIT_MB) {
 
         for (let i = 0; i < undeleted.length - 1; i++) {
             const m1 = undeleted[i], m2 = undeleted[i + 1];
-            if (!m1.stats?.colorRGB || !m2.stats?.colorRGB) continue;
 
-            const dr = m1.stats.colorRGB.r - m2.stats.colorRGB.r;
-            const dg = m1.stats.colorRGB.g - m2.stats.colorRGB.g;
-            const db_ = m1.stats.colorRGB.b - m2.stats.colorRGB.b;
-            const colorDiff = Math.sqrt(dr * dr + dg * dg + db_ * db_);
+            let colorDiff = 0;
+            // Pokud obě videa mají platnou barvu, porovnáme je
+            if (m1.stats && m1.stats.colorRGB && m2.stats && m2.stats.colorRGB && m1.stats.colorRGB.r !== undefined) {
+                const dr = m1.stats.colorRGB.r - m2.stats.colorRGB.r;
+                const dg = m1.stats.colorRGB.g - m2.stats.colorRGB.g;
+                const db_ = m1.stats.colorRGB.b - m2.stats.colorRGB.b;
+                colorDiff = Math.sqrt(dr * dr + dg * dg + db_ * db_);
+            } else {
+                // ZÁCHRANNÁ BRZDA: Pokud FFMPEG u videa selhal, penalizujeme ho, 
+                // ale nezastavíme proces! Rozhodne se pouze podle času.
+                colorDiff = 50; 
+            }
 
             const dt = Math.abs(m2.timestamp - m1.timestamp) / 1000;
             const score = colorDiff + (dt * 0.1);
