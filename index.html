@@ -250,6 +250,10 @@
     </div>
     
     <img id="thumbPreview">
+    
+    <div id="deletedMessage" style="display:none; position: fixed; inset: 0; justify-content: center; align-items: center; z-index: 50; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #666; letter-spacing: 2px; text-transform: uppercase;">
+        Smazaná vzpomínka z&nbsp;<span id="deletedDate"></span>
+    </div>
 
     <video id="srcMask" class="source-video-hidden" loop muted playsinline>
         <source src="assets/eyes_alpha_channel.mov" type='video/quicktime; codecs="hvc1"'>
@@ -459,6 +463,7 @@
             hide(el.live); hide(el.play); hide(el.chunk);
             el.play.pause(); el.chunk.pause();
             el.thumb.style.display = 'none';
+            if (document.getElementById('deletedMessage')) document.getElementById('deletedMessage').style.display = 'none';
 
             el.btnTime.style.backgroundImage = (mode===VIEW.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
 
@@ -582,13 +587,27 @@
 
         async function playMem(idx) {
             el.thumb.style.display='none';
-            el.play.classList.remove('hidden'); el.play.classList.add('visible');
             const mem = memories[idx];
             if(!mem) return;
             
             updateDisplayTime(mem.timestamp);
-            el.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
-            try { await el.play.play(); } catch(e){}
+            
+            if (mem.deleted) {
+                el.play.classList.remove('visible'); el.play.classList.add('hidden');
+                document.getElementById('deletedDate').innerText = new Date(mem.timestamp).toLocaleDateString('cs-CZ');
+                document.getElementById('deletedMessage').style.display = 'flex';
+                
+                if (window.deletedTimeout) clearTimeout(window.deletedTimeout);
+                window.deletedTimeout = setTimeout(() => {
+                    document.getElementById('deletedMessage').style.display = 'none';
+                    if (viewState === VIEW.PLAY) el.play.onended();
+                }, 2500);
+            } else {
+                document.getElementById('deletedMessage').style.display = 'none';
+                el.play.classList.remove('hidden'); el.play.classList.add('visible');
+                el.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
+                try { await el.play.play(); } catch(e){}
+            }
         }
 
         el.play.onended = () => {
@@ -601,11 +620,15 @@
             if(memories.length<5) return;
             let best=0; let min=Infinity;
             memories.forEach((m,i)=>{
+                if(m.deleted) return;
                 const dbBri = m.stats ? m.stats.brightness : 128;
                 const diff = Math.abs(dbBri - stats.bri);
                 if(diff<min){min=diff; best=i;}
             });
-            if(best===0) best=Math.floor(Math.random()*(memories.length-1));
+            if(best===0) {
+                const validIdx = memories.findIndex(m => !m.deleted);
+                best = validIdx !== -1 ? validIdx : 0;
+            }
             setViewState(VIEW.PLAY);
             el.slider.value=best; playMem(best); triggerTongue();
         }
