@@ -1073,7 +1073,14 @@
 
             if (chunkCache.get(chunkId + 1)) el.preload.src = chunkCache.get(chunkId + 1);
 
-            try { await el.chunk.play(); } catch (e) { setViewState(VIEW.LIVE); return; }
+            try {
+                await el.chunk.play();
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    setViewState(VIEW.LIVE);
+                }
+                return;
+            }
 
             const anim = setInterval(() => {
                 if (viewState !== VIEW.TIME || el.chunk.paused) { clearInterval(anim); return; }
@@ -1101,6 +1108,10 @@
             const sliceSize = Math.min(CHUNK_SIZE, memories.length - chunkId * CHUNK_SIZE);
             let rawIdx = (chunkId * CHUNK_SIZE) + (progress * sliceSize);
             let finalIdx = Math.floor(rawIdx / 10) * 10;
+
+            el.chunk.pause();
+            el.chunk.removeAttribute('src');
+            el.chunk.load();
 
             if (finalIdx >= memories.length) finalIdx = memories.length - 1;
             if (finalIdx < 0) finalIdx = 0;
