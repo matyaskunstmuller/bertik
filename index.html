@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="cs">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,118 +8,362 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
-    
+
     <script type="module">
         import { Octokit } from "https://esm.sh/@octokit/rest";
         window.Octokit = Octokit;
     </script>
-    
+
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; user-select: none; }
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
 
         /* --- 1. VIDEA & NÁHLEDY --- */
-        .video-layer { 
-            position: fixed; inset: 0; width: 100%; height: 100%;
-            z-index: 1; background: #000; object-fit: cover; 
+        .video-layer {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #000;
+            object-fit: cover;
         }
-        .hidden { opacity: 0; pointer-events: none; }
-        .visible { opacity: 1; pointer-events: auto; }
 
-        #liveVideo { transform: scaleX(-1); }
-        
-        #thumbPreview { 
-            display: none; position: fixed; inset: 0; width: 100%; height: 100%; 
-            object-fit: cover; background: #000; z-index: 5; 
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #liveVideo {
+            transform: scaleX(-1);
+        }
+
+        #thumbPreview {
+            display: none;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+            z-index: 5;
         }
 
         /* --- 2. AVATAR --- */
-        .center-stage { 
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 85vh; height: 85vh; pointer-events: none; z-index: 10;
-            display: flex; justify-content: center; align-items: center;
+        .center-stage {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85vh;
+            height: 85vh;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        .char-part { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-        
-        #headSleep { z-index: 20; display: block; }
-        #headBase { z-index: 12; opacity: 0; transition: opacity 0.1s; }
-        #eyesCanvas { z-index: 15; opacity: 0; transition: opacity 0.1s; }
-        #layerBlink { z-index: 25; opacity: 0; }
-        #layerTongue { z-index: 30; opacity: 0; }
-        #layerEars { z-index: 11; opacity: 0; }
 
-        .source-video-hidden { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; }
+        .char-part {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        #headSleep {
+            z-index: 20;
+            display: block;
+        }
+
+        #headBase {
+            z-index: 12;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+
+        #eyesCanvas {
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+
+        #layerBlink {
+            z-index: 25;
+            opacity: 0;
+        }
+
+        #layerTongue {
+            z-index: 30;
+            opacity: 0;
+        }
+
+        #layerEars {
+            z-index: 11;
+            opacity: 0;
+        }
+
+        .source-video-hidden {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
 
         /* --- 3. UI --- */
-        #uiLayer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
-        .interactive { pointer-events: auto; cursor: pointer; }
+        #uiLayer {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            pointer-events: none;
+        }
 
-        .top-right { 
-            position: absolute; top: 30px; right: 30px; 
-            display: flex; flex-direction: column; align-items: flex-end; gap: 5px; 
+        .interactive {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .top-right {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
             text-shadow: 2px 2px 4px #000;
         }
-        #settingsIcon { cursor: pointer; opacity: 0.8; margin-bottom: 10px; font-size: 24px; }
-        #statsMenu { 
-            display: flex; flex-direction: column; gap: 8px; margin-top: 10px; 
-            height: 0; overflow: hidden; opacity: 0; transition: all 0.5s ease; 
-            background: rgba(0,0,0,0.5); padding: 0 10px; border-radius: 8px; 
-        }
-        #statsMenu.visible { height: auto; opacity: 1; padding: 10px; }
-        .stat-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-size: 12px; color: #ccc; }
-        .bar-bg { width: 60px; height: 4px; background: #444; border-radius: 2px; }
-        .bar-fill { height: 100%; background: #fff; width: 0%; transition: width 0.5s; }
-        .color-dot { width: 10px; height: 10px; background: #000; border-radius: 50%; }
-        .toggle-btn { background: transparent; border: 1px solid #aaa; color: #fff; padding: 2px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; }
 
-        .bottom-left { 
-            position: absolute; bottom: 50px; left: 30px; right: 30px; 
-            display: flex; flex-direction: column; gap: 20px; 
+        #settingsIcon {
+            cursor: pointer;
+            opacity: 0.8;
+            margin-bottom: 10px;
+            font-size: 24px;
         }
-        
-        .buttons-row { display: flex; gap: 30px; align-items: flex-end; }
-        
-        .big-btn { 
-            width: 140px; height: 140px; 
-            background-size: contain; background-repeat: no-repeat; background-position: center; 
-            background-color: transparent; border: none; cursor: pointer; 
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.8)); transition: transform 0.1s; 
-            position: relative; z-index: 2;
-        }
-        .big-btn:active { transform: scale(0.95); filter: brightness(0.8); }
 
-        .power-wrapper { position: relative; }
+        #statsMenu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+            height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.5s ease;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 0 10px;
+            border-radius: 8px;
+        }
+
+        #statsMenu.visible {
+            height: auto;
+            opacity: 1;
+            padding: 10px;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .bar-bg {
+            width: 60px;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #fff;
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        .color-dot {
+            width: 10px;
+            height: 10px;
+            background: #000;
+            border-radius: 50%;
+        }
+
+        .toggle-btn {
+            background: transparent;
+            border: 1px solid #aaa;
+            color: #fff;
+            padding: 2px 8px;
+            font-size: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .bottom-left {
+            position: absolute;
+            bottom: 50px;
+            left: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .buttons-row {
+            display: flex;
+            gap: 30px;
+            align-items: flex-end;
+        }
+
+        .big-btn {
+            width: 140px;
+            height: 140px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.8));
+            transition: transform 0.1s;
+            position: relative;
+            z-index: 2;
+        }
+
+        .big-btn:active {
+            transform: scale(0.95);
+            filter: brightness(0.8);
+        }
+
+        .power-wrapper {
+            position: relative;
+        }
+
         #powerGlow {
-            position: absolute; top: 50%; left: 50%;
-            width: 250px; height: 250px;
-            background: radial-gradient(circle, rgba(255,0,0,0.8) 0%, rgba(255,0,0,0) 70%);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.8) 0%, rgba(255, 0, 0, 0) 70%);
             transform: translate(-50%, -50%);
-            pointer-events: none; z-index: 1;
+            pointer-events: none;
+            z-index: 1;
             animation: pulseRed 2s infinite ease-in-out;
             display: none;
         }
+
         @keyframes pulseRed {
-            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
-            50% { transform: translate(-50%, -50%) scale(1.4); opacity: 0.6; }
-            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
+            0% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0.2;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.4);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0.2;
+            }
         }
 
-        .slider-wrapper { width: 100%; height: 30px; display: flex; align-items: center; position: relative; }
-        input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; background: #fff; border-radius: 50%; margin-top: -10px; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        .slider-wrapper {
+            width: 100%;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
 
-        #uploadInd { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 11px; display: none; z-index: 200; background: orange; color: black; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
-        #cacheStatus { font-size: 10px; color: #555; margin-top: 5px; }
+        input[type=range] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            background: #fff;
+            border-radius: 50%;
+            margin-top: -10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        #uploadInd {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            display: none;
+            z-index: 200;
+            background: orange;
+            color: black;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        #cacheStatus {
+            font-size: 10px;
+            color: #555;
+            margin-top: 5px;
+        }
 
         /* --- INTRO SCREEN --- */
-        #introLayer { 
-            position: fixed; inset: 0; background: #000; z-index: 5000; 
-            padding: 40px; display: flex; flex-direction: column; overflow-y: auto;
+        #introLayer {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 5000;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
         }
-        #introLayer.hidden { display: none; }
-        
-        .intro-top { display: flex; justify-content: space-between; width: 100%; margin-bottom: 40px; }
-        
+
+        #introLayer.hidden {
+            display: none;
+        }
+
+        .intro-top {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 40px;
+        }
+
         .app-font-style {
             font-family: 'Montserrat', sans-serif;
             font-size: 14px;
@@ -128,65 +373,207 @@
             color: #fff;
         }
 
-        .intro-title h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
-        .intro-opts { text-align: right; display: flex; flex-direction: column; gap: 10px; }
-        
-        .opt-row select { 
-            background: #000; border: 1px solid #333; color: #fff; 
-            font-family: inherit; padding: 5px; cursor: pointer; text-align: right;
+        .intro-title h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
-        .opt-row option { background: #000; color: #fff; }
+
+        .intro-opts {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .opt-row select {
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            font-family: inherit;
+            padding: 5px;
+            cursor: pointer;
+            text-align: right;
+        }
+
+        .opt-row option {
+            background: #000;
+            color: #fff;
+        }
 
         .guide-container {
-            display: flex; flex-direction: column; gap: 25px; margin-top: 20px; max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-top: 20px;
+            max-width: 500px;
         }
-        .guide-item { display: flex; align-items: center; gap: 20px; }
-        .guide-icon { width: 60px; height: 60px; background-size: contain; background-repeat: no-repeat; background-position: center; flex-shrink: 0; }
-        .guide-text { font-size: 13px; color: #ccc; line-height: 1.4; }
-        .guide-text strong { color: #fff; display: block; margin-bottom: 2px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; font-size: 11px; }
+
+        .guide-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .guide-icon {
+            width: 60px;
+            height: 60px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            flex-shrink: 0;
+        }
+
+        .guide-text {
+            font-size: 13px;
+            color: #ccc;
+            line-height: 1.4;
+        }
+
+        .guide-text strong {
+            color: #fff;
+            display: block;
+            margin-bottom: 2px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
 
         .legal-section {
-            margin-top: auto; padding-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+            margin-top: auto;
+            padding-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
         }
-        .legal-row { 
-            display: flex; align-items: flex-start; gap: 10px; max-width: 400px; 
-            font-size: 11px; color: #aaa; text-align: left;
-        }
-        .legal-row input { margin-top: 2px; cursor: pointer; }
-        .legal-row a { color: #fff; text-decoration: underline; }
 
-        #startBtn { 
-            background: transparent; border: 2px solid #fff; color: #fff; 
-            font-size: 16px; font-weight: 700; letter-spacing: 3px; 
-            cursor: pointer; padding: 15px 40px; transition: all 0.2s;
-            opacity: 0.5; pointer-events: none; margin-bottom: 20px; 
+        .legal-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            max-width: 400px;
+            font-size: 11px;
+            color: #aaa;
+            text-align: left;
         }
-        #startBtn.active { opacity: 1; pointer-events: auto; background: rgba(255,255,255,0.1); }
-        #startBtn.active:hover { background: #fff; color: #000; }
+
+        .legal-row input {
+            margin-top: 2px;
+            cursor: pointer;
+        }
+
+        .legal-row a {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        #startBtn {
+            background: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            cursor: pointer;
+            padding: 15px 40px;
+            transition: all 0.2s;
+            opacity: 0.5;
+            pointer-events: none;
+            margin-bottom: 20px;
+        }
+
+        #startBtn.active {
+            opacity: 1;
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #startBtn.active:hover {
+            background: #fff;
+            color: #000;
+        }
 
         /* FOOTER LINKS (Nyní uvnitř Intru) */
         .intro-footer-links {
-            display: flex; justify-content: space-between; width: 100%;
-            margin-top: 30px; font-size: 10px; color: #666; 
-            text-transform: uppercase; letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 30px;
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
-        .intro-footer-links a { color: #666; text-decoration: none; transition: color 0.2s; }
-        .intro-footer-links a:hover { color: #fff; }
+
+        .intro-footer-links a {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .intro-footer-links a:hover {
+            color: #fff;
+        }
 
         @media (max-width: 600px) {
-            .intro-top { flex-direction: column; gap: 20px; margin-bottom: 20px; }
-            .intro-opts { text-align: left; }
-            .opt-row select { text-align: left; }
-            .center-stage { width: 90vw; height: 90vw; }
-            .bottom-left { left: 15px; right: 15px; bottom: 40px; gap: 15px; }
-            .buttons-row { width: 100%; justify-content: space-between; gap: 0; }
-            .big-btn { width: 85px; height: 85px; }
-            #powerGlow { width: 150px; height: 150px; }
-            .guide-item { gap: 15px; }
-            .guide-icon { width: 50px; height: 50px; }
+            .intro-top {
+                flex-direction: column;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+
+            .intro-opts {
+                text-align: left;
+            }
+
+            .opt-row select {
+                text-align: left;
+            }
+
+            .center-stage {
+                width: 90vw;
+                height: 90vw;
+            }
+
+            .bottom-left {
+                left: 15px;
+                right: 15px;
+                bottom: 40px;
+                gap: 15px;
+            }
+
+            .buttons-row {
+                width: 100%;
+                justify-content: space-between;
+                gap: 0;
+            }
+
+            .big-btn {
+                width: 85px;
+                height: 85px;
+            }
+
+            #powerGlow {
+                width: 150px;
+                height: 150px;
+            }
+
+            .guide-item {
+                gap: 15px;
+            }
+
+            .guide-icon {
+                width: 50px;
+                height: 50px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <div id="introLayer">
@@ -195,8 +582,14 @@
                 <h1 class="app-font-style" style="font-size: 20px;">ONLINE BERTÍK</h1>
             </div>
             <div class="intro-opts interactive">
-                <div class="opt-row app-font-style">KAMERA <select id="selCam"><option value="off">Vypnout</option><option>Načítám...</option></select></div>
-                <div class="opt-row app-font-style">AUDIO <select id="selMic"><option value="off">Vypnout</option><option>Načítám...</option></select></div>
+                <div class="opt-row app-font-style">KAMERA <select id="selCam">
+                        <option value="off">Vypnout</option>
+                        <option>Načítám...</option>
+                    </select></div>
+                <div class="opt-row app-font-style">AUDIO <select id="selMic">
+                        <option value="off">Vypnout</option>
+                        <option>Načítám...</option>
+                    </select></div>
             </div>
         </div>
 
@@ -229,8 +622,8 @@
             <div class="legal-row interactive">
                 <input type="checkbox" id="legalCheck">
                 <label for="legalCheck">
-                    Souhlasím s nahráváním záznamu a jeho zveřejněním v rámci tohoto projektu. 
-                    Beru na vědomí, že záznam je trvalý, veřejně dostupný a nelze jej zpětně odstranit. 
+                    Souhlasím s nahráváním záznamu a jeho zveřejněním v rámci tohoto projektu.
+                    Beru na vědomí, že záznam je trvalý, veřejně dostupný a nelze jej zpětně odstranit.
                     <a href="legal.html" target="_blank">Podrobné právní informace</a>
                 </label>
             </div>
@@ -248,10 +641,11 @@
         <video id="chunkVideo" class="video-layer hidden" playsinline></video>
         <video id="preloadVideo" style="display:none;" muted playsinline></video>
     </div>
-    
+
     <img id="thumbPreview">
-    
-    <div id="deletedMessage" style="display:none; position: fixed; inset: 0; justify-content: center; align-items: center; z-index: 50; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #666; letter-spacing: 2px; text-transform: uppercase;">
+
+    <div id="deletedMessage"
+        style="display:none; position: fixed; inset: 0; justify-content: center; align-items: center; z-index: 50; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #666; letter-spacing: 2px; text-transform: uppercase;">
         Smazaná vzpomínka z&nbsp;<span id="deletedDate"></span>
     </div>
 
@@ -259,24 +653,24 @@
         <source src="assets/eyes_alpha_channel.mov" type='video/quicktime; codecs="hvc1"'>
         <source src="assets/eyes_alpha_channel.webm" type="video/webm">
     </video>
-    
+
     <video id="srcPupils" class="source-video-hidden" loop muted playsinline>
         <source src="assets/eyes_zornicky.webm" type="video/webm">
     </video>
 
     <div class="center-stage">
         <img id="headSleep" class="char-part" src="assets/head_sleep.png">
-        
+
         <video id="layerEars" class="char-part" loop muted playsinline>
             <source src="assets/ears_active.mov" type='video/quicktime; codecs="hvc1"'>
             <source src="assets/ears_active.webm" type="video/webm">
         </video>
-        
+
         <video id="headBase" class="char-part" loop muted playsinline>
             <source src="assets/head_idle.mov" type='video/quicktime; codecs="hvc1"'>
             <source src="assets/head_idle.webm" type="video/webm">
         </video>
-        
+
         <canvas id="eyesCanvas" class="char-part" width="2048" height="2048"></canvas>
         <video id="layerBlink" class="char-part" muted playsinline></video>
         <video id="layerTongue" class="char-part" muted playsinline></video>
@@ -289,25 +683,37 @@
             <div style="font-size: 12px; color:#ccc;" id="dateDisplay">--.--.----</div>
             <div id="statsToggle" style="cursor: pointer; margin-top: 5px;">▼</div>
             <div id="statsMenu">
-                <div class="stat-row app-font-style" style="font-size: 10px; margin-bottom: 5px;">ZOBRAZENÍ <button id="fitToggleBtn" class="toggle-btn">VYPLNIT</button></div>
+                <div class="stat-row app-font-style" style="font-size: 10px; margin-bottom: 5px;">ZOBRAZENÍ <button
+                        id="fitToggleBtn" class="toggle-btn">VYPLNIT</button></div>
                 <div style="height:1px; background:#444; margin:5px 0;"></div>
-                <div class="stat-row">HLASITOST <div class="bar-bg"><div id="bVol" class="bar-fill"></div></div></div>
-                <div class="stat-row">JAS <div class="bar-bg"><div id="bBri" class="bar-fill"></div></div></div>
-                <div class="stat-row">TEPLOTA <div class="bar-bg"><div id="bWarm" class="bar-fill"></div></div></div>
-                <div class="stat-row">BARVA <div class="color-dot" id="bCol"></div></div>
+                <div class="stat-row">HLASITOST <div class="bar-bg">
+                        <div id="bVol" class="bar-fill"></div>
+                    </div>
+                </div>
+                <div class="stat-row">JAS <div class="bar-bg">
+                        <div id="bBri" class="bar-fill"></div>
+                    </div>
+                </div>
+                <div class="stat-row">TEPLOTA <div class="bar-bg">
+                        <div id="bWarm" class="bar-fill"></div>
+                    </div>
+                </div>
+                <div class="stat-row">BARVA <div class="color-dot" id="bCol"></div>
+                </div>
             </div>
         </div>
-        
+
         <div class="bottom-left interactive">
             <div class="buttons-row">
                 <button id="btnSim" class="big-btn" style="background-image: url('assets/btn_sim_idle.png')"></button>
                 <button id="btnTime" class="big-btn" style="background-image: url('assets/btn_time_off.png')"></button>
                 <div class="power-wrapper">
                     <div id="powerGlow"></div>
-                    <button id="btnPwr" class="big-btn" style="background-image: url('assets/btn_power_off.png')"></button>
+                    <button id="btnPwr" class="big-btn"
+                        style="background-image: url('assets/btn_power_off.png')"></button>
                 </div>
             </div>
-            
+
             <div class="slider-wrapper">
                 <input type="range" id="slider" min="0" max="100" value="100">
             </div>
@@ -317,29 +723,29 @@
     <canvas id="analysisCanvas" width="64" height="64" style="display:none"></canvas>
 
     <script>
-        const CAST_1 = "ghp_"; 
+        const CAST_1 = "ghp_";
         const CAST_2 = "afetKr9AwwMJTdgnlcaxp5MwNizZ1i0tLxkz "; // <--- !!! TOKEN !!!
         const TOKEN = CAST_1 + CAST_2;
         const REPO = { owner: "matyaskunstmuller", name: "bertik" };
 
         const VIEW = { LIVE: 0, PLAY: 1, TIME: 2 };
         let viewState = VIEW.LIVE;
-        let isPowerOn = false; 
-        
+        let isPowerOn = false;
+
         let octokit, mediaRecorder, chunks = [];
         let memories = [];
         let recInterval, analysisInterval;
         let camId, micId;
-        let isCover = true; 
+        let isCover = true;
         let isTongueActive = false;
 
         const chunkCache = new Map();
         let totalChunks = 0;
-        const CHUNK_SIZE = 300; 
+        const CHUNK_SIZE = 300;
 
-        let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
-        let pupilX=0, pupilY=0, lastEyeUpdate=0, lastMouseMoveTime=Date.now();
-        let roamX=0, roamY=0, roamTargetTime=0;
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        let pupilX = 0, pupilY = 0, lastEyeUpdate = 0, lastMouseMoveTime = Date.now();
+        let roamX = 0, roamY = 0, roamTargetTime = 0;
 
         const el = {
             live: document.getElementById('liveVideo'),
@@ -371,14 +777,14 @@
         const srcMask = document.getElementById('srcMask');
         const srcPupils = document.getElementById('srcPupils');
         const ctxAn = document.getElementById('analysisCanvas').getContext('2d');
-        let stats = { bri:0, vol:0 };
+        let stats = { bri: 0, vol: 0 };
         let analyser, dataArray;
 
         // --- ZMĚNA 4: Detekce podpory HEVC (pro dynamická videa v JS) ---
-        const videoExt = (function() {
+        const videoExt = (function () {
             const v = document.createElement('video');
             // Pokud prohlížeč tvrdí, že umí HEVC kodek 'hvc1', použijeme MOV. Jinak WEBM.
-            if (v.canPlayType('video/quicktime; codecs="hvc1"') === "probably" || 
+            if (v.canPlayType('video/quicktime; codecs="hvc1"') === "probably" ||
                 v.canPlayType('video/quicktime; codecs="hvc1"') === "maybe") {
                 return "mov";
             }
@@ -386,12 +792,12 @@
         })();
 
         document.addEventListener("DOMContentLoaded", () => {
-            if(window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
+            if (window.Octokit) octokit = new window.Octokit({ auth: TOKEN });
             loadDevices();
-            setInterval(updateDisplayTime, 500); 
+            setInterval(updateDisplayTime, 500);
             renderAvatarLoop();
             el.glow.style.display = 'block';
-            el.headB.style.opacity = 0; 
+            el.headB.style.opacity = 0;
         });
 
         el.legalCheck.addEventListener('change', () => {
@@ -400,20 +806,20 @@
         });
 
         el.startBtn.addEventListener('click', async () => {
-            if (!el.legalCheck.checked) return; 
-            
+            if (!el.legalCheck.checked) return;
+
             camId = el.selCam.value;
             micId = el.selMic.value;
-            srcMask.play(); srcPupils.play(); 
-            
+            srcMask.play(); srcPupils.play();
+
             await loadDB();
             downloadAllChunks();
-            el.slider.value = el.slider.max; 
-            setViewState(VIEW.LIVE); 
-            
+            el.slider.value = el.slider.max;
+            setViewState(VIEW.LIVE);
+
             document.getElementById('introLayer').classList.add('hidden');
-            
-            if(camId !== 'off' && micId !== 'off') await initCam();
+
+            if (camId !== 'off' && micId !== 'off') await initCam();
         });
 
         document.getElementById('settingsIcon').addEventListener('click', () => { document.getElementById('introLayer').classList.remove('hidden'); });
@@ -435,18 +841,18 @@
 
             if (isPowerOn) {
                 startRec(); startAnalysis();
-                if(parseInt(el.slider.value) >= memories.length) setViewState(VIEW.LIVE);
+                if (parseInt(el.slider.value) >= memories.length) setViewState(VIEW.LIVE);
             } else {
                 stopRec(); stopAnalysis();
                 el.slider.value = memories.length;
-                setViewState(VIEW.LIVE); 
+                setViewState(VIEW.LIVE);
             }
-            
+
             updateAvatarState();
         });
 
         el.btnTime.addEventListener('click', () => {
-            if (viewState === VIEW.TIME) stopTimelapseAndShow(); 
+            if (viewState === VIEW.TIME) stopTimelapseAndShow();
             else setViewState(VIEW.TIME);
         });
 
@@ -456,7 +862,7 @@
 
         function setViewState(mode) {
             viewState = mode;
-            
+
             const show = (e) => { e.classList.remove('hidden'); e.classList.add('visible'); };
             const hide = (e) => { e.classList.remove('visible'); e.classList.add('hidden'); };
 
@@ -465,7 +871,7 @@
             el.thumb.style.display = 'none';
             if (document.getElementById('deletedMessage')) document.getElementById('deletedMessage').style.display = 'none';
 
-            el.btnTime.style.backgroundImage = (mode===VIEW.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
+            el.btnTime.style.backgroundImage = (mode === VIEW.TIME) ? "url('assets/btn_time_on.png')" : "url('assets/btn_time_off.png')";
 
             if (mode === VIEW.LIVE) {
                 if (isPowerOn && camId !== 'off') show(el.live);
@@ -476,7 +882,7 @@
             } else if (mode === VIEW.TIME) {
                 runTimelapse();
             }
-            
+
             updateAvatarState();
         }
 
@@ -498,105 +904,105 @@
 
         function renderAvatarLoop() {
             const now = Date.now();
-            if (now - lastEyeUpdate > (1000/12)) {
+            if (now - lastEyeUpdate > (1000 / 12)) {
                 let tx, ty;
                 if (now - lastMouseMoveTime > 3000) {
                     if (now > roamTargetTime) {
-                        roamX = (Math.random()-0.5)*90; 
-                        roamY = (Math.random()-0.5)*48;
-                        roamTargetTime = now + 2000 + Math.random()*500;
+                        roamX = (Math.random() - 0.5) * 90;
+                        roamY = (Math.random() - 0.5) * 48;
+                        roamTargetTime = now + 2000 + Math.random() * 500;
                     }
-                    tx = pupilX + (roamX - pupilX)*0.2; 
-                    ty = pupilY + (roamY - pupilY)*0.2;
+                    tx = pupilX + (roamX - pupilX) * 0.2;
+                    ty = pupilY + (roamY - pupilY) * 0.2;
                 } else {
-                    const cx = window.innerWidth/2; const cy = window.innerHeight/2;
-                    tx = ((mouseX-cx)/100)*4.5; 
-                    ty = ((mouseY-cy)/100)*4.5;
+                    const cx = window.innerWidth / 2; const cy = window.innerHeight / 2;
+                    tx = ((mouseX - cx) / 100) * 4.5;
+                    ty = ((mouseY - cy) / 100) * 4.5;
                 }
-                
+
                 pupilX += (tx - pupilX) * 0.3;
                 pupilY += (ty - pupilY) * 0.3;
                 lastEyeUpdate = now;
             }
-            
+
             const W = el.eyes.width; const H = el.eyes.height;
-            ctxEyes.clearRect(0,0,W,H); 
-            
-            if(srcMask.readyState>=2 && (el.headB.style.opacity == 1 || isTongueActive)) {
+            ctxEyes.clearRect(0, 0, W, H);
+
+            if (srcMask.readyState >= 2 && (el.headB.style.opacity == 1 || isTongueActive)) {
                 ctxEyes.globalCompositeOperation = 'source-over';
-                ctxEyes.drawImage(srcMask,0,0,W,H); 
-                
-                ctxEyes.globalCompositeOperation = 'source-in'; 
-                ctxEyes.drawImage(srcPupils, 0 + pupilX*5, 0 + pupilY*5, 2048, 2048);
-                
+                ctxEyes.drawImage(srcMask, 0, 0, W, H);
+
+                ctxEyes.globalCompositeOperation = 'source-in';
+                ctxEyes.drawImage(srcPupils, 0 + pupilX * 5, 0 + pupilY * 5, 2048, 2048);
+
                 ctxEyes.globalCompositeOperation = 'source-over';
             }
             requestAnimationFrame(renderAvatarLoop);
         }
 
         function triggerBlink() {
-            if(!isPowerOn) return;
-            el.headB.style.opacity=0; el.eyes.style.opacity=0; 
-            
+            if (!isPowerOn) return;
+            el.headB.style.opacity = 0; el.eyes.style.opacity = 0;
+
             // ZMĚNA 5: Použití dynamické přípony
-            el.blink.src = `assets/blink_anim.${videoExt}`; 
-            
-            el.blink.style.opacity=1; el.blink.play();
-            el.blink.onended = () => { el.blink.style.opacity=0; el.headB.style.opacity=1; el.eyes.style.opacity=1; };
+            el.blink.src = `assets/blink_anim.${videoExt}`;
+
+            el.blink.style.opacity = 1; el.blink.play();
+            el.blink.onended = () => { el.blink.style.opacity = 0; el.headB.style.opacity = 1; el.eyes.style.opacity = 1; };
         }
         function triggerTongue() {
-            if(!isPowerOn) return;
-            isTongueActive = true; 
-            el.headB.style.opacity=0; 
-            
+            if (!isPowerOn) return;
+            isTongueActive = true;
+            el.headB.style.opacity = 0;
+
             // ZMĚNA 6: Použití dynamické přípony
-            el.tongue.src = `assets/tongue_action.${videoExt}`; 
-            
-            el.tongue.style.opacity=1; el.tongue.play();
-            el.tongue.onended = () => { 
-                isTongueActive = false; 
-                el.tongue.style.opacity=0; if(isPowerOn) { el.headB.style.opacity=1; el.eyes.style.opacity=1; }
+            el.tongue.src = `assets/tongue_action.${videoExt}`;
+
+            el.tongue.style.opacity = 1; el.tongue.play();
+            el.tongue.onended = () => {
+                isTongueActive = false;
+                el.tongue.style.opacity = 0; if (isPowerOn) { el.headB.style.opacity = 1; el.eyes.style.opacity = 1; }
             };
         }
-        setInterval(() => { if(Math.random()>0.7) triggerBlink(); }, 4000);
+        setInterval(() => { if (Math.random() > 0.7) triggerBlink(); }, 4000);
 
         // --- PŘEHRÁVÁNÍ ---
         el.slider.addEventListener('input', () => {
-            if(viewState !== VIEW.PLAY) setViewState(VIEW.PLAY);
-            
+            if (viewState !== VIEW.PLAY) setViewState(VIEW.PLAY);
+
             el.play.classList.remove('visible'); el.play.classList.add('hidden');
-            el.thumb.style.display='block'; 
-            
+            el.thumb.style.display = 'block';
+
             const idx = parseInt(el.slider.value);
-            
-            if(idx >= memories.length) {
-                el.thumb.style.display='none';
+
+            if (idx >= memories.length) {
+                el.thumb.style.display = 'none';
             } else {
-                const tIdx = Math.floor(idx/5)*5;
+                const tIdx = Math.floor(idx / 5) * 5;
                 el.thumb.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/thumbs/thumb_${tIdx}.jpg?t=${Date.now()}`;
-                
-                if(memories[idx]) updateDisplayTime(memories[idx].timestamp);
+
+                if (memories[idx]) updateDisplayTime(memories[idx].timestamp);
             }
         });
 
         el.slider.addEventListener('change', () => {
             const idx = parseInt(el.slider.value);
-            if(idx >= memories.length) setViewState(VIEW.LIVE);
+            if (idx >= memories.length) setViewState(VIEW.LIVE);
             else playMem(idx);
         });
 
         async function playMem(idx) {
-            el.thumb.style.display='none';
+            el.thumb.style.display = 'none';
             const mem = memories[idx];
-            if(!mem) return;
-            
+            if (!mem) return;
+
             updateDisplayTime(mem.timestamp);
-            
+
             if (mem.deleted) {
                 el.play.classList.remove('visible'); el.play.classList.add('hidden');
                 document.getElementById('deletedDate').innerText = new Date(mem.timestamp).toLocaleDateString('cs-CZ');
                 document.getElementById('deletedMessage').style.display = 'flex';
-                
+
                 if (window.deletedTimeout) clearTimeout(window.deletedTimeout);
                 window.deletedTimeout = setTimeout(() => {
                     document.getElementById('deletedMessage').style.display = 'none';
@@ -606,38 +1012,38 @@
                 document.getElementById('deletedMessage').style.display = 'none';
                 el.play.classList.remove('hidden'); el.play.classList.add('visible');
                 el.play.src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/${mem.filename}`;
-                try { await el.play.play(); } catch(e){}
+                try { await el.play.play(); } catch (e) { }
             }
         }
 
         el.play.onended = () => {
-            const next = parseInt(el.slider.value)+1;
-            if(next < memories.length) { el.slider.value=next; playMem(next); }
+            const next = parseInt(el.slider.value) + 1;
+            if (next < memories.length) { el.slider.value = next; playMem(next); }
             else setViewState(VIEW.LIVE);
         };
 
         function findSimilar() {
-            if(memories.length<5) return;
-            let best=0; let min=Infinity;
-            memories.forEach((m,i)=>{
-                if(m.deleted) return;
+            if (memories.length < 5) return;
+            let best = 0; let min = Infinity;
+            memories.forEach((m, i) => {
+                if (m.deleted) return;
                 const dbBri = m.stats ? m.stats.brightness : 128;
                 const diff = Math.abs(dbBri - stats.bri);
-                if(diff<min){min=diff; best=i;}
+                if (diff < min) { min = diff; best = i; }
             });
-            if(best===0) {
+            if (best === 0) {
                 const validIdx = memories.findIndex(m => !m.deleted);
                 best = validIdx !== -1 ? validIdx : 0;
             }
             setViewState(VIEW.PLAY);
-            el.slider.value=best; playMem(best); triggerTongue();
+            el.slider.value = best; playMem(best); triggerTongue();
         }
 
         // --- ČASOSBĚR ---
         async function downloadAllChunks() {
             totalChunks = Math.ceil(memories.length / CHUNK_SIZE);
             for (let i = 0; i < totalChunks; i++) {
-                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${i}.webm`;
+                const url = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${i}.webm?t=${Date.now()}`;
                 try {
                     const r = await fetch(url);
                     if (r.ok) {
@@ -645,48 +1051,48 @@
                         const blobUrl = URL.createObjectURL(blob);
                         chunkCache.set(i, blobUrl);
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
         }
 
         let chunkId = 0;
 
         async function runTimelapse() {
-            chunkId = 0; 
+            chunkId = 0;
             playNextChunk();
         }
 
         async function playNextChunk() {
-            if(viewState !== VIEW.TIME) return;
+            if (viewState !== VIEW.TIME) return;
 
             let src = chunkCache.get(chunkId);
-            if(!src) src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm`;
-            
+            if (!src) src = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/chunks/chunk_${chunkId}.webm?t=${Date.now()}`;
+
             el.chunk.src = src;
             el.chunk.classList.remove('hidden'); el.chunk.classList.add('visible');
-            
-            if(chunkCache.get(chunkId+1)) el.preload.src = chunkCache.get(chunkId+1); 
 
-            try { await el.chunk.play(); } catch(e) { setViewState(VIEW.LIVE); return; }
+            if (chunkCache.get(chunkId + 1)) el.preload.src = chunkCache.get(chunkId + 1);
+
+            try { await el.chunk.play(); } catch (e) { setViewState(VIEW.LIVE); return; }
 
             const anim = setInterval(() => {
-                if(viewState !== VIEW.TIME || el.chunk.paused) { clearInterval(anim); return; }
+                if (viewState !== VIEW.TIME || el.chunk.paused) { clearInterval(anim); return; }
                 const p = el.chunk.currentTime / (el.chunk.duration || 1);
-                
+
                 const sliceSize = Math.min(CHUNK_SIZE, memories.length - chunkId * CHUNK_SIZE);
                 const currentIdx = Math.floor((chunkId * CHUNK_SIZE) + (p * sliceSize));
-                if(memories[currentIdx]) updateDisplayTime(memories[currentIdx].timestamp);
-                
+                if (memories[currentIdx]) updateDisplayTime(memories[currentIdx].timestamp);
+
                 el.slider.value = currentIdx;
             }, 100);
 
             el.chunk.onended = () => {
                 clearInterval(anim);
                 chunkId++;
-                if(chunkId < totalChunks) playNextChunk();
+                if (chunkId < totalChunks) playNextChunk();
                 else setViewState(VIEW.LIVE);
             };
-            
+
             el.chunk.onerror = () => { setViewState(VIEW.LIVE); };
         }
 
@@ -695,7 +1101,7 @@
             const sliceSize = Math.min(CHUNK_SIZE, memories.length - chunkId * CHUNK_SIZE);
             let rawIdx = (chunkId * CHUNK_SIZE) + (progress * sliceSize);
             let finalIdx = Math.floor(rawIdx / 10) * 10;
-            
+
             if (finalIdx >= memories.length) finalIdx = memories.length - 1;
             if (finalIdx < 0) finalIdx = 0;
 
@@ -707,123 +1113,123 @@
         // --- HW ---
         async function loadDevices() {
             try {
-                const d=await navigator.mediaDevices.enumerateDevices();
-                const v=el.selCam; const a=el.selMic;
-                
+                const d = await navigator.mediaDevices.enumerateDevices();
+                const v = el.selCam; const a = el.selMic;
+
                 while (v.options.length > 1) v.remove(1);
                 while (a.options.length > 1) a.remove(1);
-                
-                d.forEach(x=>{
-                    const o=document.createElement('option'); o.value=x.deviceId; o.text=x.label||x.kind;
-                    if(x.kind==='videoinput')v.appendChild(o);
-                    if(x.kind==='audioinput')a.appendChild(o);
+
+                d.forEach(x => {
+                    const o = document.createElement('option'); o.value = x.deviceId; o.text = x.label || x.kind;
+                    if (x.kind === 'videoinput') v.appendChild(o);
+                    if (x.kind === 'audioinput') a.appendChild(o);
                 });
 
                 // Auto-select 1. dostupného (pokud je)
                 if (v.options.length > 1) v.selectedIndex = 1;
                 if (a.options.length > 1) a.selectedIndex = 1;
 
-            }catch(e){}
+            } catch (e) { }
         }
 
         async function initCam() {
             try {
-                if(camId === 'off') {
-                    if(el.live.srcObject) el.live.srcObject.getTracks().forEach(t=>t.stop());
+                if (camId === 'off') {
+                    if (el.live.srcObject) el.live.srcObject.getTracks().forEach(t => t.stop());
                     el.live.srcObject = null;
                     return;
                 }
-                
-                if(el.live.srcObject) return;
+
+                if (el.live.srcObject) return;
 
                 const constraints = {
-                    video: {deviceId: camId ? {exact: camId} : undefined},
-                    audio: (micId !== 'off') ? {deviceId: micId ? {exact: micId} : undefined} : false
+                    video: { deviceId: camId ? { exact: camId } : undefined },
+                    audio: (micId !== 'off') ? { deviceId: micId ? { exact: micId } : undefined } : false
                 };
 
-                const stream=await navigator.mediaDevices.getUserMedia(constraints);
-                el.live.srcObject=stream;
-                
-                if(micId !== 'off') {
-                    const ac=new AudioContext();
-                    analyser=ac.createAnalyser();
-                    const src=ac.createMediaStreamSource(stream);
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                el.live.srcObject = stream;
+
+                if (micId !== 'off') {
+                    const ac = new AudioContext();
+                    analyser = ac.createAnalyser();
+                    const src = ac.createMediaStreamSource(stream);
                     src.connect(analyser);
-                    dataArray=new Uint8Array(analyser.frequencyBinCount);
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
                 }
-            }catch(e){}
+            } catch (e) { }
         }
 
         function startAnalysis() {
             clearInterval(analysisInterval);
-            analysisInterval=setInterval(()=>{
-                if(!isPowerOn) return; 
-                ctxAn.drawImage(el.live,0,0,64,64);
-                const d=ctxAn.getImageData(0,0,64,64).data;
-                let r=0,g=0,b=0;
-                for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];}
-                const c=d.length/4;
-                stats.bri=Math.round((r/c+g/c+b/c)/3);
-                document.getElementById('bBri').style.width=(stats.bri/2.55)+"%";
-                document.getElementById('bCol').style.backgroundColor=`rgb(${Math.round(r/c)},${Math.round(g/c)},${Math.round(b/c)})`;
-                if(analyser){
+            analysisInterval = setInterval(() => {
+                if (!isPowerOn) return;
+                ctxAn.drawImage(el.live, 0, 0, 64, 64);
+                const d = ctxAn.getImageData(0, 0, 64, 64).data;
+                let r = 0, g = 0, b = 0;
+                for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+                const c = d.length / 4;
+                stats.bri = Math.round((r / c + g / c + b / c) / 3);
+                document.getElementById('bBri').style.width = (stats.bri / 2.55) + "%";
+                document.getElementById('bCol').style.backgroundColor = `rgb(${Math.round(r / c)},${Math.round(g / c)},${Math.round(b / c)})`;
+                if (analyser) {
                     analyser.getByteFrequencyData(dataArray);
-                    stats.vol=dataArray[10];
-                    document.getElementById('bVol').style.width=(stats.vol/2.55)+"%";
+                    stats.vol = dataArray[10];
+                    document.getElementById('bVol').style.width = (stats.vol / 2.55) + "%";
                 }
-            },2000);
+            }, 2000);
         }
-        function stopAnalysis(){clearInterval(analysisInterval);}
+        function stopAnalysis() { clearInterval(analysisInterval); }
 
         function startRec() {
-            if(!el.live.srcObject || camId === 'off') return;
-            if(mediaRecorder && mediaRecorder.state !== 'inactive') return;
-            
-            mediaRecorder=new MediaRecorder(el.live.srcObject,{mimeType:'video/webm;codecs=vp9'});
-            mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
-            mediaRecorder.onstop=upload;
+            if (!el.live.srcObject || camId === 'off') return;
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') return;
+
+            mediaRecorder = new MediaRecorder(el.live.srcObject, { mimeType: 'video/webm;codecs=vp9' });
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            mediaRecorder.onstop = upload;
             mediaRecorder.start();
-            
+
             clearInterval(recInterval);
-            recInterval=setInterval(()=>{
-                if(mediaRecorder.state==='recording') mediaRecorder.stop();
-            },15000);
+            recInterval = setInterval(() => {
+                if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+            }, 15000);
         }
-        function stopRec(){
-            if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+        function stopRec() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
             clearInterval(recInterval);
         }
 
         async function upload() {
-            if(chunks.length===0||!octokit)return;
-            
-            const blob=new Blob(chunks,{type:'video/webm'}); chunks=[];
-            const reader=new FileReader();
+            if (chunks.length === 0 || !octokit) return;
+
+            const blob = new Blob(chunks, { type: 'video/webm' }); chunks = [];
+            const reader = new FileReader();
             reader.readAsDataURL(blob);
-            reader.onloadend=async()=>{
-                const b64=reader.result.split(',')[1];
-                const nm=`mem_${Date.now()}.webm`;
-                try{
-                    await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}',{
-                        owner:REPO.owner,repo:REPO.name,path:`memories/${nm}`,message:'new',content:b64
+            reader.onloadend = async () => {
+                const b64 = reader.result.split(',')[1];
+                const nm = `mem_${Date.now()}.webm`;
+                try {
+                    await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+                        owner: REPO.owner, repo: REPO.name, path: `memories/${nm}`, message: 'new', content: b64
                     });
-                    memories.push({filename:nm,timestamp:Date.now()});
-                    el.slider.max=memories.length;
-                    
-                    if(viewState===VIEW.LIVE) el.slider.value=memories.length;
-                    
-                }catch(e){console.error(e);}
-                
-                if(isPowerOn) mediaRecorder.start();
+                    memories.push({ filename: nm, timestamp: Date.now() });
+                    el.slider.max = memories.length;
+
+                    if (viewState === VIEW.LIVE) el.slider.value = memories.length;
+
+                } catch (e) { console.error(e); }
+
+                if (isPowerOn) mediaRecorder.start();
             };
         }
 
-        async function loadDB(){
-            try{
-                const r=await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/database.json?t=${Date.now()}`);
-                memories=await r.json();
-                el.slider.max=memories.length;
-            }catch(e){}
+        async function loadDB() {
+            try {
+                const r = await fetch(`https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/main/memories/database.json?t=${Date.now()}`);
+                memories = await r.json();
+                el.slider.max = memories.length;
+            } catch (e) { }
         }
 
         function updateDisplayTime(timestamp) {
@@ -835,11 +1241,12 @@
                     return; // V režimu playback/timelapse neměnime čas při ticku
                 }
             }
-            
-            const n=new Date(t);
-            el.timeDisplay.innerText=n.toLocaleTimeString('cs-CZ');
-            el.dateDisplay.innerText=n.toLocaleDateString('cs-CZ');
+
+            const n = new Date(t);
+            el.timeDisplay.innerText = n.toLocaleTimeString('cs-CZ');
+            el.dateDisplay.innerText = n.toLocaleDateString('cs-CZ');
         }
     </script>
 </body>
+
 </html>
