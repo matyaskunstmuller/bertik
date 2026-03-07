@@ -1047,7 +1047,8 @@
                 try {
                     const r = await fetch(url);
                     if (r.ok) {
-                        const blob = await r.blob();
+                        const arrayBuffer = await r.arrayBuffer();
+                        const blob = new Blob([arrayBuffer], { type: 'video/webm' });
                         const blobUrl = URL.createObjectURL(blob);
                         chunkCache.set(i, blobUrl);
                     }
