@@ -1078,8 +1078,8 @@
             } catch (e) {
                 if (e.name !== 'AbortError') {
                     setViewState(VIEW.LIVE);
+                    return;
                 }
-                return;
             }
 
             const anim = setInterval(() => {
