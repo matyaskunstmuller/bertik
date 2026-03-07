@@ -5468,5 +5468,35 @@
       "motion": 50,
       "brightness": 50
     }
+  },
+  {
+    "filename": "mem_1772913055934.webm",
+    "timestamp": 1772913055934,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1772913070922.webm",
+    "timestamp": 1772913070922,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
+  },
+  {
+    "filename": "mem_1772913085941.webm",
+    "timestamp": 1772913085941,
+    "stats": {
+      "volume": 50,
+      "color": "#888888",
+      "motion": 50,
+      "brightness": 50
+    }
   }
 ]
