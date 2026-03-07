@@ -1076,6 +1076,7 @@
             try {
                 await el.chunk.play();
             } catch (e) {
+                console.error("Play Error:", e);
                 if (e.name !== 'AbortError') {
                     setViewState(VIEW.LIVE);
                     return;
@@ -1100,7 +1101,10 @@
                 else setViewState(VIEW.LIVE);
             };
 
-            el.chunk.onerror = () => { setViewState(VIEW.LIVE); };
+            el.chunk.onerror = () => {
+                console.error("Chunk Video Error:", el.chunk.error);
+                setViewState(VIEW.LIVE);
+            };
         }
 
         function stopTimelapseAndShow() {
