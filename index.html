@@ -673,7 +673,8 @@
                 if(viewState !== VIEW.TIME || el.chunk.paused) { clearInterval(anim); return; }
                 const p = el.chunk.currentTime / (el.chunk.duration || 1);
                 
-                const currentIdx = Math.floor((chunkId * CHUNK_SIZE) + (p * CHUNK_SIZE));
+                const sliceSize = Math.min(CHUNK_SIZE, memories.length - chunkId * CHUNK_SIZE);
+                const currentIdx = Math.floor((chunkId * CHUNK_SIZE) + (p * sliceSize));
                 if(memories[currentIdx]) updateDisplayTime(memories[currentIdx].timestamp);
                 
                 el.slider.value = currentIdx;
@@ -691,7 +692,8 @@
 
         function stopTimelapseAndShow() {
             const progress = el.chunk.currentTime / (el.chunk.duration || 1);
-            let rawIdx = (chunkId * CHUNK_SIZE) + (progress * CHUNK_SIZE);
+            const sliceSize = Math.min(CHUNK_SIZE, memories.length - chunkId * CHUNK_SIZE);
+            let rawIdx = (chunkId * CHUNK_SIZE) + (progress * sliceSize);
             let finalIdx = Math.floor(rawIdx / 10) * 10;
             
             if (finalIdx >= memories.length) finalIdx = memories.length - 1;
@@ -825,8 +827,14 @@
         }
 
         function updateDisplayTime(timestamp) {
-            let t = timestamp || Date.now();
-            if(viewState === VIEW.LIVE) t = Date.now();
+            let t = timestamp;
+            if (t === undefined) {
+                if (viewState === VIEW.LIVE || !isPowerOn) {
+                    t = Date.now();
+                } else {
+                    return; // V režimu playback/timelapse neměnime čas při ticku
+                }
+            }
             
             const n=new Date(t);
             el.timeDisplay.innerText=n.toLocaleTimeString('cs-CZ');
