@@ -5767,7 +5767,12 @@
       "color": "#888888",
       "motion": 50,
       "brightness": 50
+<<<<<<< Updated upstream
     }
+=======
+    },
+    "deleted": false
+>>>>>>> Stashed changes
   },
   {
     "filename": "mem_1772919624759.webm",
@@ -5777,7 +5782,12 @@
       "color": "#888888",
       "motion": 50,
       "brightness": 50
+<<<<<<< Updated upstream
     }
+=======
+    },
+    "deleted": false
+>>>>>>> Stashed changes
   },
   {
     "filename": "mem_1772919639767.webm",
@@ -5787,7 +5797,12 @@
       "color": "#888888",
       "motion": 50,
       "brightness": 50
+<<<<<<< Updated upstream
     }
+=======
+    },
+    "deleted": false
+>>>>>>> Stashed changes
   },
   {
     "filename": "mem_1772919654753.webm",
@@ -5797,6 +5812,7 @@
       "color": "#888888",
       "motion": 50,
       "brightness": 50
+<<<<<<< Updated upstream
     }
   },
   {
@@ -5808,5 +5824,9 @@
       "motion": 50,
       "brightness": 50
     }
+=======
+    },
+    "deleted": false
+>>>>>>> Stashed changes
   }
 ]
